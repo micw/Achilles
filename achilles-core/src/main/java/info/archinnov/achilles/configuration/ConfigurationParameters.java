@@ -46,7 +46,9 @@ public enum ConfigurationParameters {
 
     FORCE_BATCH_STATEMENTS_ORDERING("achilles.batch.force.statements.ordering"),
 
-    INSERT_STRATEGY("achilles.insert.strategy");
+    INSERT_STRATEGY("achilles.insert.strategy"),
+
+	OSGI_CLASS_LOADER("achilles.osgi.class.loader");
 
     private String label;
 

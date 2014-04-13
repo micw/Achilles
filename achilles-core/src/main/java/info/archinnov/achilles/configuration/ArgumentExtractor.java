@@ -32,6 +32,7 @@ import static info.archinnov.achilles.configuration.ConfigurationParameters.KEYS
 import static info.archinnov.achilles.configuration.ConfigurationParameters.NATIVE_SESSION;
 import static info.archinnov.achilles.configuration.ConfigurationParameters.OBJECT_MAPPER;
 import static info.archinnov.achilles.configuration.ConfigurationParameters.OBJECT_MAPPER_FACTORY;
+import static info.archinnov.achilles.configuration.ConfigurationParameters.OSGI_CLASS_LOADER;
 import static info.archinnov.achilles.configuration.ConfigurationParameters.PREPARED_STATEMENTS_CACHE_SIZE;
 import static info.archinnov.achilles.configuration.ConfigurationParameters.PROXIES_WARM_UP_DISABLED;
 import static javax.validation.Validation.buildDefaultValidatorFactory;
@@ -56,12 +57,12 @@ import info.archinnov.achilles.annotations.Entity;
 import info.archinnov.achilles.exception.AchillesException;
 import info.archinnov.achilles.interceptor.Interceptor;
 import info.archinnov.achilles.internal.context.ConfigurationContext;
+import info.archinnov.achilles.internal.utils.ConfigMap;
 import info.archinnov.achilles.internal.validation.Validator;
 import info.archinnov.achilles.json.DefaultObjectMapperFactory;
 import info.archinnov.achilles.json.ObjectMapperFactory;
 import info.archinnov.achilles.type.ConsistencyLevel;
 import info.archinnov.achilles.type.InsertStrategy;
-import info.archinnov.achilles.internal.utils.ConfigMap;
 
 public class ArgumentExtractor {
 
@@ -80,11 +81,11 @@ public class ArgumentExtractor {
     static final InsertStrategy DEFAULT_INSERT_STRATEGY = InsertStrategy.ALL_FIELDS;
 
 
-    public List<Class<?>> initEntities(ConfigMap configurationMap) {
+    public List<Class<?>> initEntities(ConfigMap configurationMap, ClassLoader classLoader) {
         log.trace("Extract entities from configuration map");
 
         List<String> entityPackages = getEntityPackages(configurationMap);
-        List<Class<?>> entities = discoverEntities(entityPackages);
+        List<Class<?>> entities = discoverEntities(entityPackages, classLoader);
 
         List<Class<?>> entitiesFromList = configurationMap.getTypedOr(ENTITIES_LIST, Collections.<Class<?>>emptyList());
         entities.addAll(entitiesFromList);
@@ -103,12 +104,12 @@ public class ArgumentExtractor {
         return entityPackages;
     }
 
-    private List<Class<?>> discoverEntities(List<String> packageNames) {
+    private List<Class<?>> discoverEntities(List<String> packageNames, ClassLoader classLoader) {
         log.debug("Discovery of Achilles entity classes in packages {}", StringUtils.join(packageNames, ","));
 
         Set<Class<?>> candidateClasses = new HashSet<>();
         if (!packageNames.isEmpty()) {
-            Reflections reflections = new Reflections(packageNames);
+            Reflections reflections = new Reflections(packageNames, classLoader);
             candidateClasses.addAll(reflections.getTypesAnnotatedWith(Entity.class));
         }
         return new ArrayList<>(candidateClasses);
@@ -126,6 +127,7 @@ public class ArgumentExtractor {
         configContext.setPreparedStatementLRUCacheSize(initPreparedStatementsCacheSize(configurationMap));
         configContext.setForceBatchStatementsOrdering(initForceBatchStatementsOrdering(configurationMap));
         configContext.setInsertStrategy(initInsertStrategy(configurationMap));
+        configContext.setOsgiClassLoader(initOsgiClassLoader(configurationMap));
         return configContext;
     }
 
@@ -270,5 +272,9 @@ public class ArgumentExtractor {
 
     public InsertStrategy initInsertStrategy(ConfigMap configMap) {
         return configMap.getTypedOr(INSERT_STRATEGY, DEFAULT_INSERT_STRATEGY);
+    }
+
+    public ClassLoader initOsgiClassLoader(ConfigMap configMap) {
+        return configMap.getTyped(OSGI_CLASS_LOADER);
     }
 }

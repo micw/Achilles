@@ -32,6 +32,7 @@ import static info.archinnov.achilles.configuration.ConfigurationParameters.KEYS
 import static info.archinnov.achilles.configuration.ConfigurationParameters.NATIVE_SESSION;
 import static info.archinnov.achilles.configuration.ConfigurationParameters.OBJECT_MAPPER;
 import static info.archinnov.achilles.configuration.ConfigurationParameters.OBJECT_MAPPER_FACTORY;
+import static info.archinnov.achilles.configuration.ConfigurationParameters.OSGI_CLASS_LOADER;
 import static info.archinnov.achilles.configuration.ConfigurationParameters.PREPARED_STATEMENTS_CACHE_SIZE;
 import static info.archinnov.achilles.configuration.ConfigurationParameters.PROXIES_WARM_UP_DISABLED;
 import static info.archinnov.achilles.type.ConsistencyLevel.ALL;
@@ -119,14 +120,14 @@ public class ArgumentExtractorTest {
     public void should_init_entity_packages() throws Exception {
         configMap.put(ENTITY_PACKAGES, "info.archinnov.achilles.test.sample.entity,info.archinnov.achilles.test.more.entity");
 
-        Collection<Class<?>> actual = extractor.initEntities(configMap);
+        Collection<Class<?>> actual = extractor.initEntities(configMap, this.getClass().getClassLoader());
 
         assertThat(actual).containsOnly(Entity1.class, Entity2.class, Entity3.class);
     }
 
     @Test
     public void should_init_empty_entity_packages() throws Exception {
-        Collection<Class<?>> actual = extractor.initEntities(configMap);
+        Collection<Class<?>> actual = extractor.initEntities(configMap, this.getClass().getClassLoader());
 
         assertThat(actual).isEmpty();
     }
@@ -135,14 +136,14 @@ public class ArgumentExtractorTest {
     public void should_init_entities_list() {
         configMap.put(ENTITIES_LIST, Arrays.asList(Entity1.class));
 
-        Collection<Class<?>> actual = extractor.initEntities(configMap);
+        Collection<Class<?>> actual = extractor.initEntities(configMap, this.getClass().getClassLoader());
 
         assertThat(actual).contains(Entity1.class);
     }
 
     @Test
     public void should_init_empty_entities_list() {
-        Collection<Class<?>> actual = extractor.initEntities(configMap);
+        Collection<Class<?>> actual = extractor.initEntities(configMap, this.getClass().getClassLoader());
 
         assertThat(actual).isEmpty();
     }
@@ -152,7 +153,7 @@ public class ArgumentExtractorTest {
         configMap.put(ENTITIES_LIST, Arrays.asList(Entity1.class));
         configMap.put(ENTITY_PACKAGES, "info.archinnov.achilles.test.more.entity");
 
-        Collection<Class<?>> actual = extractor.initEntities(configMap);
+        Collection<Class<?>> actual = extractor.initEntities(configMap, this.getClass().getClassLoader());
 
         assertThat(actual).containsOnly(Entity1.class, Entity3.class);
     }
@@ -450,5 +451,18 @@ public class ArgumentExtractorTest {
 
         //Then
         assertThat(strategy).isEqualTo(ALL_FIELDS);
+    }
+
+    @Test
+    public void should_init_osgi_classloader() throws Exception {
+        //Given
+        ConfigMap params = new ConfigMap();
+        params.put(OSGI_CLASS_LOADER, this.getClass().getClassLoader());
+
+        //When
+        final ClassLoader actual = extractor.initOsgiClassLoader(params);
+
+        //Then
+        assertThat(actual).isSameAs(this.getClass().getClassLoader());
     }
 }

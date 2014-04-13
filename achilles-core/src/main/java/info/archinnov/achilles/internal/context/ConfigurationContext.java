@@ -42,6 +42,8 @@ public class ConfigurationContext {
 
     private InsertStrategy insertStrategy;
 
+	private ClassLoader osgiClassLoader;
+
     public boolean isForceColumnFamilyCreation() {
         return forceColumnFamilyCreation;
     }
@@ -106,6 +108,10 @@ public class ConfigurationContext {
         this.insertStrategy = insertStrategy;
     }
 
+    public void setOsgiClassLoader(ClassLoader osgiClassLoader) {
+        this.osgiClassLoader = osgiClassLoader;
+    }
+
     public boolean isClassConstrained(Class<?> clazz) {
         if (beanValidator != null) {
             return beanValidator.getConstraintsForClass(clazz).isBeanConstrained();
@@ -123,5 +129,13 @@ public class ConfigurationContext {
 
     public ObjectMapper getMapperFor(Class<?> type) {
         return objectMapperFactory.getMapper(type);
+    }
+
+    public ClassLoader selectClassLoader(Class<?> entityClass) {
+        return osgiClassLoader != null ? osgiClassLoader : entityClass.getClassLoader();
+    }
+
+    public ClassLoader selectClassLoader() {
+        return osgiClassLoader != null ? osgiClassLoader : this.getClass().getClassLoader();
     }
 }
