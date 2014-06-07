@@ -16,7 +16,6 @@
 package info.archinnov.achilles.internal.context;
 
 import static com.google.common.collect.FluentIterable.from;
-import static info.archinnov.achilles.counter.AchillesCounter.CQL_COUNTER_VALUE;
 import static info.archinnov.achilles.interceptor.Event.POST_LOAD;
 import static info.archinnov.achilles.interceptor.Event.POST_PERSIST;
 import static info.archinnov.achilles.interceptor.Event.POST_REMOVE;
@@ -30,6 +29,9 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+
+import info.archinnov.achilles.type.Empty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.datastax.driver.core.ResultSet;
@@ -37,7 +39,11 @@ import com.datastax.driver.core.Row;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
+import com.google.common.util.concurrent.ListenableFuture;
+import info.archinnov.achilles.async.AchillesFuture;
 import info.archinnov.achilles.exception.AchillesStaleObjectStateException;
+import info.archinnov.achilles.internal.async.AsyncUtils;
+import info.archinnov.achilles.internal.async.ImmediateValue;
 import info.archinnov.achilles.internal.consistency.ConsistencyOverrider;
 import info.archinnov.achilles.internal.context.facade.DaoOperations;
 import info.archinnov.achilles.internal.context.facade.EntityOperations;
@@ -82,6 +88,8 @@ public class PersistenceContext {
     protected DaoContext daoContext;
 
     private ConsistencyOverrider overrider = new ConsistencyOverrider();
+
+    protected AsyncUtils asyncUtils = new AsyncUtils();
 
     protected PersistenceManagerFacade persistenceManagerFacade = new PersistenceManagerFacade();
 
@@ -217,7 +225,7 @@ public class PersistenceContext {
         }
 
         public boolean hasCasConditions() {
-            return options.hasCasConditions();
+            return options.hasCASConditions();
         }
 
         public Optional getCASResultListener() {
@@ -235,6 +243,10 @@ public class PersistenceContext {
         public ConfigurationContext getConfigContext() {
             return configContext;
         }
+
+        public ExecutorService getExecutorService() {
+            return configContext.getExecutorService();
+        }
     }
 
     public class PersistenceManagerFacade extends StateHolderFacade implements PersistenceManagerOperations {
@@ -242,51 +254,156 @@ public class PersistenceContext {
         private PersistenceManagerFacade() {
         }
 
-        public <T> T persist(T rawEntity) {
+        public <T> AchillesFuture<T> persist(final T rawEntity) {
+            flushContext.triggerInterceptor(entityMeta, rawEntity, PRE_PERSIST);
+            persister.persist(entityFacade);
+            final ListenableFuture<List<ResultSet>> resultSetFutures = flush();
+            Function<List<ResultSet>, T> applyTriggers = new Function<List<ResultSet>, T>() {
+                @Override
+                public T apply(List<ResultSet> input) {
+                    flushContext.triggerInterceptor(entityMeta, rawEntity, POST_PERSIST);
+                    return rawEntity;
+                }
+            };
+
+            Function<T, T> createProxy = new Function<T, T>() {
+                @Override
+                public T apply(T input) {
+                    return proxifier.buildProxyWithAllFieldsLoadedExceptCounters(rawEntity, entityFacade);
+                }
+            };
+
+            final ListenableFuture<T> triggersApplied = asyncUtils.transformFuture(resultSetFutures, applyTriggers);
+
+            asyncUtils.maybeAddAsyncListeners(triggersApplied, options, getExecutorService());
+
+            final ListenableFuture<T> proxyCreated = asyncUtils.transformFuture(triggersApplied, createProxy);
+
+            return asyncUtils.buildInterruptible(proxyCreated);
+        }
+
+        public <T> AchillesFuture<T> batchPersist(final T rawEntity) {
             flushContext.triggerInterceptor(entityMeta, rawEntity, PRE_PERSIST);
             persister.persist(entityFacade);
             flush();
             flushContext.triggerInterceptor(entityMeta, rawEntity, POST_PERSIST);
-            return proxifier.buildProxyWithAllFieldsLoadedExceptCounters(rawEntity, entityFacade);
+            final T proxy = proxifier.buildProxyWithAllFieldsLoadedExceptCounters(rawEntity, entityFacade);
+            return asyncUtils.buildInterruptible(new ImmediateValue<>(proxy));
         }
 
-        public void update(Object proxifiedEntity) {
+        public <T> AchillesFuture<T> update(final T proxy) {
             flushContext.triggerInterceptor(entityMeta, entity, PRE_UPDATE);
-            updater.update(entityFacade, proxifiedEntity);
-            flush();
-            flushContext.triggerInterceptor(entityMeta, entity, POST_UPDATE);
+            updater.update(entityFacade, proxy);
+            final ListenableFuture<List<ResultSet>> resultSetFutures = flush();
+            Function<List<ResultSet>, T> applyTriggers = new Function<List<ResultSet>, T>() {
+                @Override
+                public T apply(List<ResultSet> input) {
+                    flushContext.triggerInterceptor(entityMeta, entity, POST_UPDATE);
+                    return proxy;
+                }
+            };
+            final ListenableFuture<T> triggersApplied = asyncUtils.transformFuture(resultSetFutures, applyTriggers);
+            asyncUtils.maybeAddAsyncListeners(triggersApplied, options, getExecutorService());
+            return asyncUtils.buildInterruptible(triggersApplied);
         }
 
-        public void remove() {
+        public <T> AchillesFuture<T> remove() {
             flushContext.triggerInterceptor(entityMeta, entity, PRE_REMOVE);
             persister.remove(entityFacade);
-            flush();
-            flushContext.triggerInterceptor(entityMeta, entity, POST_REMOVE);
+            final ListenableFuture<List<ResultSet>> resultSetFutures = flush();
+            Function<List<ResultSet>, T> applyTriggers = new Function<List<ResultSet>, T>() {
+                @Override
+                public T apply(List<ResultSet> input) {
+                    flushContext.triggerInterceptor(entityMeta, entity, POST_REMOVE);
+                    return (T) entity;
+                }
+            };
+            final ListenableFuture<T> triggersApplied = asyncUtils.transformFuture(resultSetFutures, applyTriggers);
+            asyncUtils.maybeAddAsyncListeners(triggersApplied, options, getExecutorService());
+            return asyncUtils.buildInterruptible(triggersApplied);
         }
 
-        public <T> T find(Class<T> entityClass) {
-            T rawEntity = loader.load(entityFacade, entityClass);
-            T proxifiedEntity = null;
-            if (rawEntity != null) {
-                flushContext.triggerInterceptor(entityMeta, rawEntity, POST_LOAD);
-                proxifiedEntity = proxifier.buildProxyWithAllFieldsLoadedExceptCounters(rawEntity, entityFacade);
-            }
-            return proxifiedEntity;
+        public AchillesFuture<Empty> removeById() {
+            flushContext.triggerInterceptor(entityMeta, entity, PRE_REMOVE);
+            persister.remove(entityFacade);
+            final ListenableFuture<List<ResultSet>> resultSetFutures = flush();
+            Function<List<ResultSet>, Empty> toEmpty = new Function<List<ResultSet>, Empty>() {
+                @Override
+                public Empty apply(List<ResultSet> input) {
+                    return Empty.INSTANCE;
+                }
+            };
+            final ListenableFuture<Empty> triggersApplied = asyncUtils.transformFuture(resultSetFutures, toEmpty);
+            asyncUtils.maybeAddAsyncListeners(triggersApplied, options, getExecutorService());
+            return asyncUtils.buildInterruptible(triggersApplied);
         }
 
-        public <T> T getProxy(Class<T> entityClass) {
+        public <T> AchillesFuture<T> find(Class<T> entityClass) {
+            final AchillesFuture<T> achillesFuture = loader.load(entityFacade, entityClass);
+
+            Function<T, T> applyTrigger = new Function<T, T>() {
+                @Override
+                public T apply(T rawEntity) {
+                    if (rawEntity != null) {
+                        flushContext.triggerInterceptor(entityMeta, rawEntity, POST_LOAD);
+                    }
+                    return rawEntity;
+                }
+            };
+
+            final ListenableFuture<T> triggersApplied = asyncUtils.transformFuture(achillesFuture, applyTrigger);
+
+            asyncUtils.maybeAddAsyncListeners(triggersApplied, options, getExecutorService());
+
+            Function<T, T> createProxy = new Function<T, T>() {
+                @Override
+                public T apply(T rawEntity) {
+                    return proxifier.buildProxyWithAllFieldsLoadedExceptCounters(rawEntity, entityFacade);
+                }
+            };
+
+            final ListenableFuture<T> proxyCreated = asyncUtils.transformFuture(triggersApplied, createProxy);
+            return asyncUtils.buildInterruptible(proxyCreated);
+        }
+
+        public <T> AchillesFuture<T> getProxy(Class<T> entityClass) {
             T entity = loader.createEmptyEntity(entityFacade, entityClass);
-            return proxifier.buildProxyWithNoFieldLoaded(entity, entityFacade);
+            final T proxy = proxifier.buildProxyWithNoFieldLoaded(entity, entityFacade);
+            final ImmediateValue<T> immediateValue = new ImmediateValue<>(proxy);
+            asyncUtils.maybeAddAsyncListeners(immediateValue, options, getExecutorService());
+            return asyncUtils.buildInterruptible(immediateValue);
         }
 
-        public void refresh(Object proxifiedEntity) throws AchillesStaleObjectStateException {
-            refresher.refresh(proxifiedEntity, entityFacade);
-            flushContext.triggerInterceptor(entityMeta, entity, POST_LOAD);
+        public <T> AchillesFuture<T> refresh(T proxy) throws AchillesStaleObjectStateException {
+            final AchillesFuture<T> achillesFuture = refresher.refresh(proxy, entityFacade);
+
+            final Function<T, T> removeProxy = new Function<T, T>() {
+                @Override
+                public T apply(T proxy) {
+                    return proxifier.removeProxy(proxy);
+                }
+            };
+
+            final ListenableFuture<T> proxyRemoved = asyncUtils.transformFuture(achillesFuture, removeProxy);
+
+            asyncUtils.maybeAddAsyncListeners(proxyRemoved, options, getExecutorService());
+
+            final Function<T, T> applyTriggers = new Function<T, T>() {
+                @Override
+                public T apply(T refreshedEntity) {
+                    flushContext.triggerInterceptor(entityMeta, entity, POST_LOAD);
+                    return refreshedEntity;
+                }
+            };
+
+            final ListenableFuture<T> triggersApplied = asyncUtils.transformFuture(achillesFuture, applyTriggers);
+
+            return asyncUtils.buildInterruptible(triggersApplied);
         }
 
-        public <T> T initialize(T proxifiedEntity) {
-            initializer.initializeEntity(proxifiedEntity, entityMeta);
-            return proxifiedEntity;
+        public <T> T initialize(T proxy) {
+            initializer.initializeEntity(proxy, entityMeta);
+            return proxy;
         }
 
         public <T> List<T> initialize(List<T> entities) {
@@ -303,9 +420,10 @@ public class PersistenceContext {
             return entities;
         }
 
-        protected void flush() {
-            flushContext.flush();
+        protected ListenableFuture<List<ResultSet>> flush() {
+            return flushContext.flush();
         }
+
     }
 
     public class EntityFacade extends StateHolderFacade implements EntityOperations {
@@ -313,7 +431,7 @@ public class PersistenceContext {
         private EntityFacade() {
         }
 
-        public Row loadEntity() {
+        public ListenableFuture<Row> loadEntity() {
             return daoContext.loadEntity(daoFacade);
         }
 
@@ -346,11 +464,7 @@ public class PersistenceContext {
         public Long getSimpleCounter(PropertyMeta counterMeta, ConsistencyLevel consistency) {
             log.trace("Get counter value for counterMeta '{}' with consistency level '{}'", counterMeta, consistency);
 
-            Row row = daoContext.getSimpleCounter(daoFacade, counterMeta, consistency);
-            if (row != null) {
-                return row.getLong(CQL_COUNTER_VALUE);
-            }
-            return null;
+            return daoContext.getSimpleCounter(daoFacade, counterMeta, consistency);
         }
 
         public void bindForSimpleCounterRemoval(PropertyMeta counterMeta) {
@@ -362,7 +476,7 @@ public class PersistenceContext {
             daoContext.pushClusteredCounterIncrementStatement(daoFacade, counterMeta, increment);
         }
 
-        public Row getClusteredCounter() {
+        public ListenableFuture<Row> getClusteredCounter() {
             log.trace("Get clustered counter value for entityMeta '{}'", entityMeta);
             return daoContext.getClusteredCounter(daoFacade);
         }
@@ -390,8 +504,8 @@ public class PersistenceContext {
             flushContext.pushCounterStatement(statementWrapper);
         }
 
-        public ResultSet executeImmediate(AbstractStatementWrapper bsWrapper) {
-            return flushContext.executeImmediate(bsWrapper);
+        public ListenableFuture<ResultSet> executeImmediate(AbstractStatementWrapper bsWrapper) {
+            return flushContext.execute(bsWrapper);
         }
     }
 }

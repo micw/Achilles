@@ -15,21 +15,28 @@
  */
 package info.archinnov.achilles.internal.persistence.operations;
 
+import static info.archinnov.achilles.internal.async.AsyncUtils.RESULTSET_TO_ITERATOR;
+import static info.archinnov.achilles.internal.async.AsyncUtils.RESULTSET_TO_ROWS;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.google.common.base.Function;
-import com.google.common.collect.FluentIterable;
-import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.ListenableFuture;
+import info.archinnov.achilles.async.AchillesFuture;
 import info.archinnov.achilles.interceptor.Event;
+import info.archinnov.achilles.internal.async.AsyncUtils;
+import info.archinnov.achilles.type.Empty;
 import info.archinnov.achilles.internal.context.ConfigurationContext;
 import info.archinnov.achilles.internal.context.DaoContext;
 import info.archinnov.achilles.internal.context.PersistenceContext;
 import info.archinnov.achilles.internal.context.PersistenceContextFactory;
 import info.archinnov.achilles.internal.metadata.holder.EntityMeta;
+import info.archinnov.achilles.internal.statement.StatementGenerator;
 import info.archinnov.achilles.internal.statement.wrapper.BoundStatementWrapper;
 import info.archinnov.achilles.iterator.SliceQueryIterator;
 import info.archinnov.achilles.query.slice.SliceQueryProperties;
@@ -39,66 +46,136 @@ public class SliceQueryExecutor {
 
     private static final Logger log = LoggerFactory.getLogger(SliceQueryExecutor.class);
 
-    private EntityMapper mapper = new EntityMapper();
-    private EntityProxifier proxifier = new EntityProxifier();
-    private PersistenceContextFactory contextFactory;
-    private DaoContext daoContext;
-    private ConsistencyLevel defaultReadLevel;
-    private ConsistencyLevel defaultWriteLevel;
+    protected StatementGenerator generator = new StatementGenerator();
+    protected EntityMapper mapper = new EntityMapper();
+    protected EntityProxifier proxifier = new EntityProxifier();
+    protected AsyncUtils asyncUtils = new AsyncUtils();
+    protected PersistenceContextFactory contextFactory;
+    protected DaoContext daoContext;
+    protected ConsistencyLevel defaultReadLevel;
+    protected ConsistencyLevel defaultWriteLevel;
+    protected ExecutorService executorService;
 
-    public SliceQueryExecutor(PersistenceContextFactory contextFactory, ConfigurationContext configContext,
-            DaoContext daoContext) {
+
+    public SliceQueryExecutor(PersistenceContextFactory contextFactory, ConfigurationContext configContext, DaoContext daoContext) {
         this.contextFactory = contextFactory;
         this.daoContext = daoContext;
         this.defaultReadLevel = configContext.getDefaultReadConsistencyLevel();
         this.defaultWriteLevel = configContext.getDefaultWriteConsistencyLevel();
+        this.executorService = configContext.getExecutorService();
     }
 
     public <T> List<T> get(SliceQueryProperties<T> sliceQueryProperties) {
+        return asyncGet(sliceQueryProperties).getImmediately();
+    }
+
+    public <T> AchillesFuture<List<T>> asyncGet(SliceQueryProperties<T> sliceQueryProperties) {
         log.debug("Get slice query");
-        EntityMeta meta = sliceQueryProperties.getEntityMeta();
-
-        List<T> clusteredEntities = new ArrayList<>();
-
-        final BoundStatementWrapper bsWrapper = daoContext.bindForSliceQuerySelect(sliceQueryProperties, defaultReadLevel);
-        List<Row> rows = daoContext.execute(bsWrapper).all();
-
-        for (Row row : rows) {
-            T clusteredEntity = meta.instanciate();
-            mapper.setNonCounterPropertiesToEntity(row, meta, clusteredEntity);
-            meta.intercept(clusteredEntity, Event.POST_LOAD);
-            clusteredEntities.add(clusteredEntity);
-        }
-
-        return new ArrayList<>(FluentIterable.from(clusteredEntities).transform(this.<T>getProxyTransformer()).toList());
+        final ListenableFuture<List<T>> futureEntities = coreAsyncGet(sliceQueryProperties);
+        return asyncUtils.buildInterruptible(futureEntities);
     }
 
-    public <T> Iterator<T> iterator(SliceQueryProperties<T> sliceQueryProperties) {
+    public <T> AchillesFuture<T> asyncGetOne(SliceQueryProperties<T> sliceQueryProperties) {
+        log.debug("Get slice query");
+
+        Function<List<T>, T> takeFirstFunction = new Function<List<T>, T>() {
+            @Override
+            public T apply(List<T> result) {
+                if (result.isEmpty()) {
+                    return null;
+                } else {
+                    return result.get(0);
+                }
+            }
+        };
+
+        final ListenableFuture<List<T>> futureEntities = coreAsyncGet(sliceQueryProperties);
+        final ListenableFuture<T> futureEntity = asyncUtils.transformFuture(futureEntities, takeFirstFunction);
+        return asyncUtils.buildInterruptible(futureEntity);
+    }
+
+    protected <T> ListenableFuture<List<T>> coreAsyncGet(SliceQueryProperties<T> sliceQueryProperties) {
+        final EntityMeta meta = sliceQueryProperties.getEntityMeta();
+
+        final BoundStatementWrapper bsWrapper = daoContext.bindForSliceQuerySelect(sliceQueryProperties, defaultReadLevel);
+
+        final ListenableFuture<ResultSet> resultSetFuture = daoContext.execute(bsWrapper);
+        final ListenableFuture<List<Row>> futureRows = asyncUtils.transformFuture(resultSetFuture, RESULTSET_TO_ROWS);
+        Function<List<Row>, List<T>> rowsToEntities = new Function<List<Row>, List<T>>() {
+            @Override
+            public List<T> apply(List<Row> rows) {
+                List<T> clusteredEntities = new ArrayList<>();
+                for (Row row : rows) {
+                    T clusteredEntity = meta.instanciate();
+                    mapper.setNonCounterPropertiesToEntity(row, meta, clusteredEntity);
+                    meta.intercept(clusteredEntity, Event.POST_LOAD);
+                    clusteredEntities.add(clusteredEntity);
+                }
+                return clusteredEntities;
+            }
+        };
+        final ListenableFuture<List<T>> futureEntities = asyncUtils.transformFuture(futureRows, rowsToEntities);
+        asyncUtils.maybeAddAsyncListeners(futureEntities, sliceQueryProperties.getAsyncListeners(), executorService);
+
+        return asyncUtils.transformFuture(futureEntities, this.<T>getProxyListTransformer());
+    }
+
+    public <T> Iterator<T> iterator(final SliceQueryProperties<T> sliceQueryProperties) {
         log.debug("Get iterator for slice query");
+        return asyncIterator(sliceQueryProperties).getImmediately();
+    }
+
+    public <T> AchillesFuture<Iterator<T>> asyncIterator(final SliceQueryProperties<T> sliceQueryProperties) {
+        log.debug("Get iterator for slice query asynchronously");
         final BoundStatementWrapper bsWrapper = daoContext.bindForSliceQuerySelect(sliceQueryProperties, defaultReadLevel);
-        Iterator<Row> iterator = daoContext.execute(bsWrapper).iterator();
-        PersistenceContext context = buildContextForQuery(sliceQueryProperties);
-        return new SliceQueryIterator<>(sliceQueryProperties, context, iterator);
+        final ListenableFuture<ResultSet> resultSetFuture = daoContext.execute(bsWrapper);
+        final ListenableFuture<Iterator<Row>> futureIterator = asyncUtils.transformFuture(resultSetFuture, RESULTSET_TO_ITERATOR);
+
+        Function<Iterator<Row>, Iterator<T>> rowToIterator = new Function<Iterator<Row>, Iterator<T>>() {
+            @Override
+            public Iterator<T> apply(Iterator<Row> rowIterator) {
+                PersistenceContext context = buildContextForQuery(sliceQueryProperties);
+                return new SliceQueryIterator<>(sliceQueryProperties, context, rowIterator);
+            }
+        };
+        final ListenableFuture<Iterator<T>> listenableFuture = asyncUtils.transformFuture(futureIterator, rowToIterator);
+        asyncUtils.maybeAddAsyncListeners(listenableFuture, sliceQueryProperties.getAsyncListeners(), executorService);
+        return asyncUtils.buildInterruptible(listenableFuture);
     }
 
-    public <T> void delete(SliceQueryProperties<T> sliceQueryProperties) {
-        log.debug("Slice delete");
+    public <T> void delete(final SliceQueryProperties<T> sliceQueryProperties) {
+        asyncDelete(sliceQueryProperties).getImmediately();
+    }
+
+    public <T> AchillesFuture<Empty> asyncDelete(final SliceQueryProperties<T> sliceQueryProperties) {
+        log.debug("Slice remove");
         final BoundStatementWrapper bsWrapper = daoContext.bindForSliceQueryDelete(sliceQueryProperties, defaultWriteLevel);
-        daoContext.execute(bsWrapper);
+        final ListenableFuture<ResultSet> resultSetFuture = daoContext.execute(bsWrapper);
+        final ListenableFuture<Empty> listenableFuture = asyncUtils.transformFutureToEmpty(resultSetFuture);
+        asyncUtils.maybeAddAsyncListeners(listenableFuture, sliceQueryProperties.getAsyncListeners(), executorService);
+        return asyncUtils.buildInterruptible(listenableFuture);
     }
 
-    protected <T> PersistenceContext buildContextForQuery(SliceQueryProperties<T> sliceQueryProperties) {
+    protected <T> PersistenceContext buildContextForQuery( SliceQueryProperties<T> sliceQueryProperties) {
         log.trace("Build PersistenceContext for slice query");
         ConsistencyLevel cl = sliceQueryProperties.getConsistencyLevelOr(defaultReadLevel);
         return contextFactory.newContextForSliceQuery(sliceQueryProperties.getEntityClass(), sliceQueryProperties.getPartitionKeys(), cl);
     }
 
-    private <T> Function<T, T> getProxyTransformer() {
-        return new Function<T, T>() {
+    public ExecutorService getExecutorService() {
+        return executorService;
+    }
+
+    private <T> Function<List<T>, List<T>> getProxyListTransformer() {
+        return new Function<List<T>, List<T>>() {
             @Override
-            public T apply(T clusteredEntity) {
-                PersistenceContext context = contextFactory.newContext(clusteredEntity);
-                return proxifier.buildProxyWithAllFieldsLoadedExceptCounters(clusteredEntity, context.getEntityFacade());
+            public List<T> apply(List<T> clusteredEntities) {
+                final List<T> proxies = new ArrayList<>();
+                for (T clusteredEntity : clusteredEntities) {
+                    PersistenceContext context = contextFactory.newContext(clusteredEntity);
+                    proxies.add(proxifier.buildProxyWithAllFieldsLoadedExceptCounters(clusteredEntity, context.getEntityFacade()));
+                }
+                return proxies;
             }
         };
     }

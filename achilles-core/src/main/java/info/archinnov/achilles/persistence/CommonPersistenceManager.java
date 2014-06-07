@@ -49,7 +49,7 @@ public class CommonPersistenceManager extends AbstractPersistenceManager {
      */
     public <T> T insert(T entity) {
         log.debug("Inserting entity '{}'", entity);
-        return super.insert(entity, noOptions());
+        return super.asyncInsert(entity, noOptions()).getImmediately();
     }
 
     /**
@@ -68,7 +68,7 @@ public class CommonPersistenceManager extends AbstractPersistenceManager {
      */
     public <T> T insert(final T entity, Options options) {
         log.debug("Inserting entity '{}' with options {} ", entity, options);
-        return super.insert(entity, options);
+        return super.asyncInsert(entity, options).getImmediately();
     }
 
     /**
@@ -86,7 +86,7 @@ public class CommonPersistenceManager extends AbstractPersistenceManager {
      */
     public void update(Object entity) {
         log.debug("Updating entity '{}'", proxifier.getRealObject(entity));
-        super.update(entity, noOptions());
+        super.asyncUpdate(entity, noOptions()).getImmediately();
     }
 
     /**
@@ -106,7 +106,7 @@ public class CommonPersistenceManager extends AbstractPersistenceManager {
      */
     public void update(Object entity, Options options) {
         log.debug("Updating entity '{}' with options {} ", proxifier.getRealObject(entity), options);
-        super.update(entity, options);
+        super.asyncUpdate(entity, options).getImmediately();
     }
 
 
@@ -121,7 +121,8 @@ public class CommonPersistenceManager extends AbstractPersistenceManager {
      * @return proxified entity
      */
     public <T> T insertOrUpdate(T entity) {
-        return this.insertOrUpdate(entity,noOptions());
+        log.debug("Inserting or updating entity '{}'", proxifier.getRealObject(entity));
+        return this.asyncInsertOrUpdate(entity,noOptions()).getImmediately();
     }
 
     /**
@@ -135,15 +136,8 @@ public class CommonPersistenceManager extends AbstractPersistenceManager {
      *            options
      */
     public <T> T insertOrUpdate(T entity, Options options) {
-        entityValidator.validateEntity(entity, entityMetaMap);
         log.debug("Inserting or updating entity '{}' with options {}", proxifier.getRealObject(entity), options);
-
-        if (proxifier.isProxy(entity)) {
-            super.update(entity, options);
-            return entity;
-        } else {
-            return super.insert(entity, options);
-        }
+        return this.asyncInsertOrUpdate(entity,options).getImmediately();
     }
 
     /**
@@ -160,7 +154,7 @@ public class CommonPersistenceManager extends AbstractPersistenceManager {
      */
     public void remove(Object entity) {
         log.debug("Removing entity '{}'", proxifier.getRealObject(entity));
-        super.remove(entity, noOptions());
+        super.asyncRemove(entity, noOptions()).getImmediately();
     }
 
     /**
@@ -179,7 +173,7 @@ public class CommonPersistenceManager extends AbstractPersistenceManager {
      */
     public void remove(final Object entity, Options options) {
         log.debug("Removing entity '{}' with options {}", proxifier.getRealObject(entity), options);
-        super.remove(entity,options);
+        super.asyncRemove(entity,options).getImmediately();
     }
 
     /**
@@ -198,7 +192,7 @@ public class CommonPersistenceManager extends AbstractPersistenceManager {
      */
     public void removeById(Class<?> entityClass, Object primaryKey) {
         log.debug("Removing entity of type '{}' by its id '{}'", entityClass, primaryKey);
-        super.removeById(entityClass, primaryKey, noOptions());
+        super.asyncRemoveById(entityClass, primaryKey, noOptions()).getImmediately();
     }
 
     /**
@@ -217,6 +211,6 @@ public class CommonPersistenceManager extends AbstractPersistenceManager {
      */
     public void removeById(Class<?> entityClass, Object primaryKey, Options options) {
         log.debug("Removing entity of type '{}' by its id '{}'", entityClass, primaryKey);
-        super.removeById(entityClass, primaryKey, options);
+        super.asyncRemoveById(entityClass, primaryKey, options).getImmediately();
     }
 }

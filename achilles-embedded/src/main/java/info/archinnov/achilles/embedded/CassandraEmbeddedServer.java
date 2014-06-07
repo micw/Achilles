@@ -18,6 +18,8 @@ package info.archinnov.achilles.embedded;
 import static info.archinnov.achilles.embedded.ServerStarter.CASSANDRA_EMBEDDED;
 import static info.archinnov.achilles.embedded.StateRepository.REPOSITORY;
 import static info.archinnov.achilles.internal.statement.wrapper.AbstractStatementWrapper.ACHILLES_DML_STATEMENT;
+
+import info.archinnov.achilles.persistence.AsyncManager;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,7 +49,7 @@ public class CassandraEmbeddedServer {
      * <em>This constructor is not meant to be used directly. Please use the
      * {@code info.archinnov.achilles.embedded.CassandraEmbeddedServerBuilder} instead
      * </em>
-     * @param parameters embedded Cassandra server parameters
+     * @param originalParameters embedded Cassandra server parameters
      * @param achillesParameters Achilles parameters
      */
     public CassandraEmbeddedServer(TypedMap originalParameters, ConfigMap achillesParameters) {
@@ -75,6 +77,10 @@ public class CassandraEmbeddedServer {
 
     public PersistenceManager getPersistenceManager(String keyspaceName) {
         return REPOSITORY.getManagerForKeyspace(keyspaceName);
+    }
+
+    public AsyncManager getAsyncManager(String keyspaceName) {
+        return REPOSITORY.getAsyncManagerForKeyspace(keyspaceName);
     }
 
     public Session getNativeSession(String keyspaceName) {

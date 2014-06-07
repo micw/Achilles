@@ -19,6 +19,7 @@ import static info.archinnov.achilles.test.integration.entity.ClusteredEntity.TA
 import static info.archinnov.achilles.type.ConsistencyLevel.EACH_QUORUM;
 import static info.archinnov.achilles.type.ConsistencyLevel.ONE;
 import static info.archinnov.achilles.type.ConsistencyLevel.THREE;
+import static info.archinnov.achilles.type.OptionsBuilder.withConsistency;
 import static org.fest.assertions.api.Assertions.assertThat;
 import java.util.List;
 import org.apache.commons.lang.math.RandomUtils;
@@ -74,7 +75,7 @@ public class ConsistencyLevelPriorityOrderingIT {
 
         batch.update(managed);
 
-        batch.endBatch();
+        batch.flushBatch();
         logAsserter.assertConsistencyLevels(ONE);
         assertThatBatchContextHasBeenReset(batch);
 

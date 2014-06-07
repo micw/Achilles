@@ -47,7 +47,7 @@ public class UnorderedBatchModeIT {
         entity.setName("name1");
         batch.insert(entity);
 
-        batch.endBatch();
+        batch.flushBatch();
         //Then
 
         CompleteBean actual = manager.find(CompleteBean.class, entity.getId());
@@ -71,7 +71,7 @@ public class UnorderedBatchModeIT {
         managed.setName("name1");
         batch.update(managed);
 
-        batch.endBatch();
+        batch.flushBatch();
 
         //Then
         manager.refresh(managed);

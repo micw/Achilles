@@ -76,6 +76,24 @@ public class SelectDSLTest {
     }
 
     @Test
+    public void should_async_get_with_limit_from_partition_keys_only() throws Exception {
+        //Given
+        final SelectDSL<String> builder = new SliceQueryBuilder<>(executor, String.class, entityMeta).forSelect();
+
+        //When
+        final SelectFromPartition<String> start = builder
+                .withPartitionComponents("a");
+
+        start.limit(3).async().get(10);
+
+        final RegularStatement whereClause = start.properties.generateWhereClauseForSelect(select);
+
+        //Then
+        assertThat(whereClause.getQueryString()).isEqualTo("SELECT * FROM table WHERE id=:id ORDER BY col1 ASC LIMIT :limitSize;");
+        assertThat(start.properties.getBoundValues()).containsSequence("a", 10);
+    }
+
+    @Test
     public void should_get_from_partition_keys_IN() throws Exception {
         //Given
         final SelectDSL<String> builder = new SliceQueryBuilder<>(executor, String.class, entityMeta).forSelect();
@@ -93,6 +111,7 @@ public class SelectDSLTest {
         assertThat(start.properties.getBoundValues()).containsSequence(asList("a","b"), "A","B",10);
     }
 
+
     @Test
     public void should_get_one_from_partition_keys_only() throws Exception {
         //Given
@@ -103,6 +122,24 @@ public class SelectDSLTest {
                 .withPartitionComponents("a");
 
         start.limit(3).getOne();
+
+        final RegularStatement whereClause = start.properties.generateWhereClauseForSelect(select);
+
+        //Then
+        assertThat(whereClause.getQueryString()).isEqualTo("SELECT * FROM table WHERE id=:id ORDER BY col1 ASC LIMIT :limitSize;");
+        assertThat(start.properties.getBoundValues()).containsSequence("a", 1);
+    }
+
+    @Test
+    public void should_async_get_one_from_partition_keys_only() throws Exception {
+        //Given
+        final SelectDSL<String> builder = new SliceQueryBuilder<>(executor, String.class, entityMeta).forSelect();
+
+        //When
+        final SelectFromPartition<String> start = builder
+                .withPartitionComponents("a");
+
+        start.limit(3).async().getOne();
 
         final RegularStatement whereClause = start.properties.generateWhereClauseForSelect(select);
 
@@ -156,6 +193,28 @@ public class SelectDSLTest {
     }
 
     @Test
+    public void should_async_get_one_with_clustering_keys_IN() throws Exception {
+        //Given
+        final SelectDSL<String> builder = new SliceQueryBuilder<>(executor, String.class, entityMeta).forSelect();
+
+        //When
+        final SelectFromPartition<String> start = builder
+                .withPartitionComponents("a");
+
+        start.limit(3)
+                .withClusterings("A", "B")
+                .andClusteringsIN("C", "D")
+                .async()
+                .getOne();
+
+        final RegularStatement whereClause = start.properties.generateWhereClauseForSelect(select);
+
+        //Then
+        assertThat(whereClause.getQueryString()).isEqualTo("SELECT * FROM table WHERE id=:id AND col1=:col1 AND col2=:col2 AND col3 IN :clusteringKeysIn ORDER BY col1 ASC LIMIT :limitSize;");
+        assertThat(start.properties.getBoundValues()).containsSequence("a", "A", "B", asList("C", "D"), 1);
+    }
+
+    @Test
     public void should_get_one_with_from_clustering_only() throws Exception {
         //Given
         final SelectDSL<String> builder = new SliceQueryBuilder<>(executor, String.class, entityMeta).forSelect();
@@ -182,7 +241,22 @@ public class SelectDSLTest {
 
         start.limit(3).getMatching("A", "B", "C");
 
-        System.out.println("start.properties = " + start.properties);
+        final RegularStatement whereClause = start.properties.generateWhereClauseForSelect(select);
+
+        //Then
+        assertThat(whereClause.getQueryString()).isEqualTo("SELECT * FROM table WHERE id=:id AND col1=:col1 AND col2=:col2 AND col3=:col3 ORDER BY col1 ASC LIMIT :limitSize;");
+        assertThat(start.properties.getBoundValues()).containsSequence("a", "A", "B", "C", 3);
+    }
+
+    @Test
+    public void should_async_get_matching_clustering_keys() throws Exception {
+        //Given
+        final SelectDSL<String> builder = new SliceQueryBuilder<>(executor, String.class, entityMeta).forSelect();
+
+        //When
+        final SelectFromPartition<String> start = builder.withPartitionComponents("a");
+
+        start.limit(3).async().getMatching("A", "B", "C");
 
         final RegularStatement whereClause = start.properties.generateWhereClauseForSelect(select);
 
@@ -201,6 +275,23 @@ public class SelectDSLTest {
         final SelectFromPartition<String> start = builder.withPartitionComponents("a");
 
         start.limit(3).getFirstMatching(5, "A", "B", "C");
+
+        final RegularStatement whereClause = start.properties.generateWhereClauseForSelect(select);
+
+        //Then
+        assertThat(whereClause.getQueryString()).isEqualTo("SELECT * FROM table WHERE id=:id AND col1=:col1 AND col2=:col2 AND col3=:col3 ORDER BY col1 ASC LIMIT :limitSize;");
+        assertThat(start.properties.getBoundValues()).containsSequence("a", "A", "B", "C", 5);
+    }
+
+    @Test
+    public void should_async_get_first_matching_clustering_keys() throws Exception {
+        //Given
+        final SelectDSL<String> builder = new SliceQueryBuilder<>(executor, String.class, entityMeta).forSelect();
+
+        //When
+        final SelectFromPartition<String> start = builder.withPartitionComponents("a");
+
+        start.limit(3).async().getFirstMatching(5, "A", "B", "C");
 
         final RegularStatement whereClause = start.properties.generateWhereClauseForSelect(select);
 

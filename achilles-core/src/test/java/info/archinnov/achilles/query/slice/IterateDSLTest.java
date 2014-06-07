@@ -75,6 +75,24 @@ public class IterateDSLTest {
     }
 
     @Test
+    public void should_async_iterate() throws Exception {
+        //Given
+        final IterateDSL<String> builder = new SliceQueryBuilder<>(executor, String.class, entityMeta).forIteration();
+
+        //When
+        final IterateFromPartition<String> start = builder.withPartitionComponents("a");
+
+        start.limit(3).async().iterator(11);
+
+        final RegularStatement whereClause = start.properties.generateWhereClauseForSelect(select);
+
+        //Then
+        assertThat(whereClause.getQueryString()).isEqualTo("SELECT * FROM table WHERE id=:id ORDER BY col1 ASC LIMIT :limitSize;");
+        assertThat(start.properties.getBoundValues()).containsSequence("a", 3);
+        assertThat(start.properties.fetchSizeO.get()).isEqualTo(11);
+    }
+
+    @Test
     public void should_iterate_with_partition_keys_IN() throws Exception {
         //Given
         final IterateDSL<String> builder = new SliceQueryBuilder<>(executor, String.class, entityMeta).forIteration();
@@ -93,7 +111,7 @@ public class IterateDSLTest {
     }
 
     @Test
-    public void should_iterate_with_batchsize() throws Exception {
+    public void should_iterate_with_fetch_size() throws Exception {
         //Given
         final IterateDSL<String> builder = new SliceQueryBuilder<>(executor, String.class, entityMeta).forIteration();
 
@@ -101,6 +119,24 @@ public class IterateDSLTest {
         final IterateFromPartition<String> start = builder.withPartitionComponents("a");
 
         start.limit(3).iterator(120);
+
+        final RegularStatement whereClause = start.properties.generateWhereClauseForSelect(select);
+
+        //Then
+        assertThat(whereClause.getQueryString()).isEqualTo("SELECT * FROM table WHERE id=:id ORDER BY col1 ASC LIMIT :limitSize;");
+        assertThat(start.properties.getBoundValues()).containsSequence("a", 3);
+        assertThat(start.properties.fetchSizeO.get()).isEqualTo(120);
+    }
+
+    @Test
+    public void should_async_iterate_with_batchsize() throws Exception {
+        //Given
+        final IterateDSL<String> builder = new SliceQueryBuilder<>(executor, String.class, entityMeta).forIteration();
+
+        //When
+        final IterateFromPartition<String> start = builder.withPartitionComponents("a");
+
+        start.limit(3).async().iterator(120);
 
         final RegularStatement whereClause = start.properties.generateWhereClauseForSelect(select);
 
@@ -129,7 +165,25 @@ public class IterateDSLTest {
     }
 
     @Test
-    public void should_iterate_with_matching_and_batchsize() throws Exception {
+    public void should_async_iterate_with_matching() throws Exception {
+        //Given
+        final IterateDSL<String> builder = new SliceQueryBuilder<>(executor, String.class, entityMeta).forIteration();
+
+        //When
+        final IterateFromPartition<String> start = builder.withPartitionComponents("a");
+
+        start.limit(3).async().iteratorWithMatching("A", "B");
+
+        final RegularStatement whereClause = start.properties.generateWhereClauseForSelect(select);
+
+        //Then
+        assertThat(whereClause.getQueryString()).isEqualTo("SELECT * FROM table WHERE id=:id AND col1=:col1 AND col2=:col2 ORDER BY col1 ASC LIMIT :limitSize;");
+        assertThat(start.properties.getBoundValues()).containsSequence("a", "A", "B", 3);
+        assertThat(start.properties.fetchSizeO.isPresent()).isFalse();
+    }
+
+    @Test
+    public void should_iterate_with_matching_and_fetch_size() throws Exception {
         //Given
         final IterateDSL<String> builder = new SliceQueryBuilder<>(executor, String.class, entityMeta).forIteration();
 
@@ -146,4 +200,21 @@ public class IterateDSLTest {
         assertThat(start.properties.fetchSizeO.get()).isEqualTo(123);
     }
 
+    @Test
+    public void should_async_iterate_with_matching_and_batchsize() throws Exception {
+        //Given
+        final IterateDSL<String> builder = new SliceQueryBuilder<>(executor, String.class, entityMeta).forIteration();
+
+        //When
+        final IterateFromPartition<String> start = builder.withPartitionComponents("a");
+
+        start.limit(3).async().iteratorWithMatchingAndBatchSize(123, "A", "B");
+
+        final RegularStatement whereClause = start.properties.generateWhereClauseForSelect(select);
+
+        //Then
+        assertThat(whereClause.getQueryString()).isEqualTo("SELECT * FROM table WHERE id=:id AND col1=:col1 AND col2=:col2 ORDER BY col1 ASC LIMIT :limitSize;");
+        assertThat(start.properties.getBoundValues()).containsSequence("a", "A", "B", 3);
+        assertThat(start.properties.fetchSizeO.get()).isEqualTo(123);
+    }
 }

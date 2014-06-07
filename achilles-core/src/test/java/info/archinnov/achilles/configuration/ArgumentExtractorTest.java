@@ -27,6 +27,7 @@ import static info.archinnov.achilles.configuration.ConfigurationParameters.ENAB
 import static info.archinnov.achilles.configuration.ConfigurationParameters.ENTITIES_LIST;
 import static info.archinnov.achilles.configuration.ConfigurationParameters.ENTITY_PACKAGES;
 import static info.archinnov.achilles.configuration.ConfigurationParameters.EVENT_INTERCEPTORS;
+import static info.archinnov.achilles.configuration.ConfigurationParameters.EXECUTOR_SERVICE;
 import static info.archinnov.achilles.configuration.ConfigurationParameters.FORCE_TABLE_CREATION;
 import static info.archinnov.achilles.configuration.ConfigurationParameters.INSERT_STRATEGY;
 import static info.archinnov.achilles.configuration.ConfigurationParameters.KEYSPACE_NAME;
@@ -54,6 +55,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import javax.validation.Validator;
 import org.fest.assertions.data.MapEntry;
 import org.hibernate.validator.internal.engine.ValidatorImpl;
@@ -113,6 +116,9 @@ public class ArgumentExtractorTest {
 
     @Mock
     private Interceptor<String> interceptor2;
+
+    @Mock
+    private ExecutorService executorService;
 
     private ConfigMap configMap = new ConfigMap();
 
@@ -378,7 +384,7 @@ public class ArgumentExtractorTest {
         assertThat(configContext.getBeanValidator()).isNull();
         assertThat(configContext.getPreparedStatementLRUCacheSize()).isEqualTo(DEFAULT_LRU_CACHE_SIZE);
         assertThat(configContext.getInsertStrategy()).isEqualTo(ALL_FIELDS);
-        assertThat(configContext.getInsertStrategy()).isEqualTo(ALL_FIELDS);
+        assertThat(configContext.getExecutorService()).isNotNull().isInstanceOf(ThreadPoolExecutor.class);
     }
 
     @Test
@@ -480,6 +486,20 @@ public class ArgumentExtractorTest {
     }
 
     @Test
+    public void should_init_default_executor_service() throws Exception {
+        //Given
+        ConfigMap params = new ConfigMap();
+
+        //When
+        final ExecutorService executorService = extractor.initExecutorService(params);
+
+        //Then
+        assertThat(executorService).isNotNull()
+                .isInstanceOf(ThreadPoolExecutor.class)
+                .isNotEqualTo(this.executorService);
+    }
+
+    @Test
     public void should_init_relax_index_validation() throws Exception {
         //Given
         ConfigMap params = new ConfigMap();
@@ -491,8 +511,18 @@ public class ArgumentExtractorTest {
         //Then
         assertThat(actual).isTrue();
         assertThat(extractor.initRelaxIndexValidation(new ConfigMap())).isFalse();
+    }
 
+    @Test
+    public void should_init_custom_executor_service() throws Exception {
+        //Given
+        ConfigMap params = new ConfigMap();
+        params.put(EXECUTOR_SERVICE, executorService);
 
+        //When
+        final ExecutorService executorService = extractor.initExecutorService(params);
 
+        //Then
+        assertThat(executorService).isNotNull().isEqualTo(this.executorService);
     }
 }

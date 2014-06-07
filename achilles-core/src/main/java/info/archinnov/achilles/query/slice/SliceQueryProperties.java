@@ -42,6 +42,7 @@ import com.datastax.driver.core.querybuilder.Delete;
 import com.datastax.driver.core.querybuilder.Select;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.util.concurrent.FutureCallback;
 import info.archinnov.achilles.internal.metadata.holder.EntityMeta;
 import info.archinnov.achilles.internal.validation.Validator;
 import info.archinnov.achilles.type.ConsistencyLevel;
@@ -85,6 +86,8 @@ public class SliceQueryProperties<T> {
     private String lastClusteringKeyName;
 
     private ClusteringOrder clusteringOrder;
+
+    private FutureCallback<Object>[] asyncListeners;
 
     private SliceQueryProperties(EntityMeta entityMeta, Class<T> entityClass, SliceType sliceType) {
         this.entityMeta = entityMeta;
@@ -191,6 +194,12 @@ public class SliceQueryProperties<T> {
 
     protected SliceQueryProperties<T>  lastClusteringKeyName(String lastClusteringKeyName) {
         this.lastClusteringKeyName = lastClusteringKeyName;
+        return this;
+    }
+
+    protected SliceQueryProperties<T>  asyncListeners(FutureCallback<Object>[] asyncListeners) {
+        Validator.validateNotEmpty(asyncListeners,"The provided async listeners should not be null");
+        this.asyncListeners = asyncListeners;
         return this;
     }
 
@@ -341,6 +350,10 @@ public class SliceQueryProperties<T> {
 
     public List<Object> getWithClusteringKeys() {
         return withClusteringKeys;
+    }
+
+    public FutureCallback<Object>[] getAsyncListeners() {
+        return asyncListeners;
     }
 
     @Override

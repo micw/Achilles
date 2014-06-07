@@ -15,7 +15,11 @@
  */
 package info.archinnov.achilles.persistence;
 
+import static com.datastax.driver.core.querybuilder.QueryBuilder.*;
+import static info.archinnov.achilles.internal.metadata.holder.EntityMeta.EntityState.MANAGED;
+import static info.archinnov.achilles.internal.metadata.holder.EntityMeta.EntityState.NOT_MANAGED;
 import static info.archinnov.achilles.type.OptionsBuilder.noOptions;
+import static info.archinnov.achilles.type.OptionsBuilder.withConsistency;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -24,14 +28,24 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.datastax.driver.core.RegularStatement;
 import com.datastax.driver.core.Session;
+import com.datastax.driver.core.querybuilder.Select;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import info.archinnov.achilles.async.AchillesFuture;
 import info.archinnov.achilles.exception.AchillesStaleObjectStateException;
 import info.archinnov.achilles.internal.context.ConfigurationContext;
 import info.archinnov.achilles.internal.context.DaoContext;
 import info.archinnov.achilles.internal.context.PersistenceContextFactory;
+import info.archinnov.achilles.internal.context.facade.PersistenceManagerOperations;
 import info.archinnov.achilles.internal.metadata.holder.EntityMeta;
+import info.archinnov.achilles.internal.persistence.operations.EntityProxifier;
+import info.archinnov.achilles.internal.persistence.operations.EntityValidator;
+import info.archinnov.achilles.internal.persistence.operations.OptionsValidator;
+import info.archinnov.achilles.internal.persistence.operations.SliceQueryExecutor;
+import info.archinnov.achilles.internal.validation.Validator;
 import info.archinnov.achilles.query.cql.NativeQuery;
 import info.archinnov.achilles.query.slice.SliceQueryBuilder;
 import info.archinnov.achilles.query.typed.TypedQuery;
+import info.archinnov.achilles.query.typed.TypedQueryValidator;
 import info.archinnov.achilles.type.ConsistencyLevel;
 import info.archinnov.achilles.type.IndexCondition;
 import info.archinnov.achilles.type.Options;
@@ -47,9 +61,9 @@ import info.archinnov.achilles.type.Options;
  * </p>
  *
  * <p>
- *  <h3>I Insert transient entity</h3>
+ *  <h3>I Persist transient entity</h3>
  *  <pre class="code"><code class="java">
- *      // Persist
+ *      // Insert
  *      MyEntity managedEntity = manager.insert(myEntity);
  *  </code></pre>
  *
@@ -158,11 +172,9 @@ import info.archinnov.achilles.type.Options;
 public class PersistenceManager extends CommonPersistenceManager {
     private static final Logger log = LoggerFactory.getLogger(PersistenceManager.class);
 
-    protected PersistenceManager(Map<Class<?>, EntityMeta> entityMetaMap, //
-            PersistenceContextFactory contextFactory, DaoContext daoContext, ConfigurationContext configContext) {
-      super(entityMetaMap,contextFactory,daoContext,configContext);
+    protected PersistenceManager(Map<Class<?>, EntityMeta> entityMetaMap, PersistenceContextFactory contextFactory, DaoContext daoContext, ConfigurationContext configContext) {
+        super(entityMetaMap, contextFactory, daoContext, configContext);
     }
-
 
     /**
      * Find an entity.
@@ -176,11 +188,14 @@ public class PersistenceManager extends CommonPersistenceManager {
      *            Entity type
      * @param primaryKey
      *            Primary key (Cassandra row key) of the entity to load
+     *
+     * @return T managed entity
      */
     public <T> T find(Class<T> entityClass, Object primaryKey) {
-        log.debug("Find entity class '{}' with primary key {}", entityClass, primaryKey);
-        return super.find(entityClass, primaryKey, null);
+        log.debug("Find entity class '{}' with primary key '{}'", entityClass, primaryKey);
+        return super.asyncFind(entityClass, primaryKey, noOptions()).getImmediately();
     }
+
 
     /**
      * Find an entity with the given Consistency Level for read
@@ -196,10 +211,12 @@ public class PersistenceManager extends CommonPersistenceManager {
      *            Primary key (Cassandra row key) of the entity to load
      * @param readLevel
      *            Consistency Level for read
+     *
+     * @return T managed entity
      */
     public <T> T find(final Class<T> entityClass, final Object primaryKey, ConsistencyLevel readLevel) {
-        log.debug("Find entity class '{}' with primary key {} and read consistency level {}", entityClass, primaryKey, readLevel);
-        return super.find(entityClass, primaryKey, readLevel);
+        log.debug("Find entity class '{}' with primary key '{}' and consistency level '{}'", entityClass, primaryKey, readLevel);
+        return super.asyncFind(entityClass, primaryKey, withConsistency(readLevel)).getImmediately();
     }
 
     /**
@@ -217,11 +234,14 @@ public class PersistenceManager extends CommonPersistenceManager {
      *            Entity type
      * @param primaryKey
      *            Primary key (Cassandra row key) of the entity to initialize
+     *
+     * @return T proxy
      */
     public <T> T getProxy(Class<T> entityClass, Object primaryKey) {
         log.debug("Get reference for entity class '{}' with primary key {}", entityClass, primaryKey);
-        return super.getProxy(entityClass, primaryKey, null);
+        return super.asyncGetProxy(entityClass, primaryKey, noOptions()).getImmediately();
     }
+
 
     /**
      * Create a proxy for the entity. An new empty entity will be created,
@@ -238,13 +258,14 @@ public class PersistenceManager extends CommonPersistenceManager {
      *            Entity type
      * @param primaryKey
      *            Primary key (Cassandra row key) of the entity to initialize
-     * @param readLevel
-     *            Consistency Level for read
+     * @param options
+     *            options
      */
-    public <T> T getProxy(final Class<T> entityClass, final Object primaryKey, ConsistencyLevel readLevel) {
-        log.debug("Get reference for entity class '{}' with primary key {} and read consistency level {}",entityClass, primaryKey, readLevel);
-        return super.getProxy(entityClass, primaryKey, readLevel);
+    public <T> T getProxy(final Class<T> entityClass, final Object primaryKey, Options options) {
+        log.debug("Get reference for entity class '{}' with primary key {} and options {}", entityClass, primaryKey, options);
+        return super.asyncGetProxy(entityClass, primaryKey, options).getImmediately();
     }
+
 
     /**
      * Refresh an entity.
@@ -264,8 +285,9 @@ public class PersistenceManager extends CommonPersistenceManager {
      */
     public void refresh(Object entity) throws AchillesStaleObjectStateException {
         log.debug("Refreshing entity '{}'", proxifier.removeProxy(entity));
-        super.refresh(entity, null);
+        super.asyncRefresh(entity, noOptions()).getImmediately();
     }
+
 
     /**
      * Refresh an entity with the given Consistency Level for read.
@@ -286,8 +308,8 @@ public class PersistenceManager extends CommonPersistenceManager {
      *            Consistency Level for read
      */
     public void refresh(final Object entity, ConsistencyLevel readLevel) throws AchillesStaleObjectStateException {
-        log.debug("Refreshing entity '{}' with read consistency level {}", proxifier.removeProxy(entity), readLevel);
-        super.refresh(entity, readLevel);
+        log.debug("Refreshing entity '{}' with consistency level '{}'", proxifier.removeProxy(entity));
+        super.asyncRefresh(entity, withConsistency(readLevel)).getImmediately();
     }
 
     /**
@@ -307,14 +329,9 @@ public class PersistenceManager extends CommonPersistenceManager {
      *
      */
     public <T> T initialize(final T entity) {
-        log.debug("Force lazy fields initialization for entity {}", entity);
-        if (log.isDebugEnabled()) {
-            log.debug("Force lazy fields initialization for entity {}", proxifier.removeProxy(entity));
-        }
+        log.debug("Force lazy fields initialization for entity {}", proxifier.removeProxy(entity));
         return super.initialize(entity);
     }
-
-
 
     /**
      * Initialize all lazy fields of a list of 'managed' entities
@@ -336,10 +353,7 @@ public class PersistenceManager extends CommonPersistenceManager {
      */
     public <T> Set<T> initialize(final Set<T> entities) {
         log.debug("Force lazy fields initialization for entity set {}", entities);
-        for (T entity : entities) {
-            super.initialize(entity);
-        }
-        return entities;
+        return super.initialize(entities);
     }
 
     /**
@@ -362,10 +376,7 @@ public class PersistenceManager extends CommonPersistenceManager {
      */
     public <T> List<T> initialize(final List<T> entities) {
         log.debug("Force lazy fields initialization for entity set {}", entities);
-        for (T entity : entities) {
-            super.initialize(entity);
-        }
-        return entities;
+        return super.initialize(entities);
     }
 
     /**
@@ -448,6 +459,7 @@ public class PersistenceManager extends CommonPersistenceManager {
         return super.removeProxy(proxies);
     }
 
+
     /**
      * Create a builder to start slice query DSL. The provided entity class <strong>must</strong> be:
      *
@@ -527,11 +539,13 @@ public class PersistenceManager extends CommonPersistenceManager {
      * @see <a href="https://github.com/doanduyhai/Achilles/wiki/Queries#native-query" target="_blank">Native query API</a>
      *
      * @param regularStatement
-     *            native CQL query string, including limit, ttl and consistency
+     *            native CQL3 regularStatement, including limit, ttl and consistency
      *            options
      *
      * @param options
-     *            options
+     *            options for the query. <strong>Only CAS Result listener passed as option is taken
+     *            into account</strong>. For timestamp, TTL and CAS conditions you must specify them
+     *            directly in the query string
      *
      * @param boundValues
      *            values to be bind to the parameterized query, if any
@@ -583,8 +597,6 @@ public class PersistenceManager extends CommonPersistenceManager {
     public <T> TypedQuery<T> typedQuery(Class<T> entityClass, RegularStatement regularStatement, Object... boundValues) {
         return super.typedQueryInternal(entityClass, regularStatement, boundValues);
     }
-
-
 
     /**
      * Return a CQL typed query builder
@@ -654,7 +666,6 @@ public class PersistenceManager extends CommonPersistenceManager {
      * @throws IOException
      */
     public String serializeToJSON(Object entity) throws IOException {
-        log.debug("Serialize the entity {} to JSON", entity);
         return super.serializeToJSON(entity);
     }
 
@@ -667,7 +678,6 @@ public class PersistenceManager extends CommonPersistenceManager {
      * @throws IOException
      */
     public <T> T deserializeFromJSON(Class<T> type, String serialized) throws IOException {
-        log.debug("Deserialize the the JSON {} into type {}", serialized, type);
         return super.deserializeFromJSON(type, serialized);
     }
 
@@ -687,10 +697,10 @@ public class PersistenceManager extends CommonPersistenceManager {
      * thread-safe. In case of exception, you MUST not re-use it but create
      * another one</strong>
      *
-     * @return a new state-full PersistenceManager
+     * @return a new state-full Batch
      */
     public Batch createBatch() {
-        log.debug("Create new Batch instance");
+        log.debug("Spawn new Batch");
         return new Batch(entityMetaMap, contextFactory, daoContext, configContext, false);
     }
 
@@ -707,10 +717,10 @@ public class PersistenceManager extends CommonPersistenceManager {
      * thread-safe. In case of exception, you MUST not re-use it but create
      * another one</strong>
      *
-     * @return a new state-full PersistenceManager
+     * @return a new state-full ordered Batch
      */
     public Batch createOrderedBatch() {
-        log.debug("Create new ordered Batch");
+        log.debug("Spawn new ordered Batch");
         return new Batch(entityMetaMap, contextFactory, daoContext, configContext, true);
     }
 }
