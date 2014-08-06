@@ -23,6 +23,8 @@ import static org.fest.assertions.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import info.archinnov.achilles.internal.metadata.holder.PropertyType;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -48,6 +50,9 @@ import info.archinnov.achilles.test.mapping.entity.CompleteBean;
 import info.archinnov.achilles.type.ConsistencyLevel;
 import info.archinnov.achilles.type.Options;
 import info.archinnov.achilles.type.OptionsBuilder;
+
+import java.util.ArrayList;
+import java.util.Arrays;
 
 @RunWith(MockitoJUnitRunner.class)
 public class BatchTest {

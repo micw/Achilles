@@ -142,15 +142,6 @@ public class PropertyMeta {
         return components;
     }
 
-    public String getVaryingComponentNameForQuery(int fixedComponentsSize) {
-        log.trace("Get varying component name for CQL query");
-        String componentName = null;
-        if (embeddedIdProperties != null)
-            componentName = embeddedIdProperties.getVaryingComponentNameForQuery(fixedComponentsSize);
-
-        return componentName;
-    }
-
     public List<String> getCQLComponentNames() {
         log.trace("Get CQL component names");
         return FluentIterable.from(getComponentNames()).transform(TO_LOWER_CASE).toList();
@@ -178,12 +169,6 @@ public class PropertyMeta {
         log.trace("Get partition key component classes");
         return embeddedIdProperties != null ? embeddedIdProperties.getPartitionComponentClasses() : Arrays
                 .<Class<?>>asList(valueClass);
-    }
-
-    public List<Object> extractPartitionComponents(List<Object> components) {
-        log.trace("Extract partition key components");
-        return embeddedIdProperties != null ? embeddedIdProperties.extractPartitionComponents(components) : Arrays
-                .asList();
     }
 
     public void validatePartitionComponents(Object...partitionComponents) {
@@ -218,13 +203,6 @@ public class PropertyMeta {
         log.trace("Get partition key component fields");
         return embeddedIdProperties != null ? embeddedIdProperties.getPartitionComponentFields() : Arrays
                 .<Field>asList();
-    }
-
-    public List<Object> extractClusteringComponents(List<Object> components) {
-        log.trace("Extract clustering components");
-        return embeddedIdProperties != null ? embeddedIdProperties.extractClusteringComponents(components) : Arrays
-                .asList();
-
     }
 
     public boolean isPrimaryKeyTimeUUID(String componentName) {
@@ -366,6 +344,22 @@ public class PropertyMeta {
 
     public List<Object> encodeToComponents(List<Object> components) {
         return components == null ? null : transcoder.encodeToComponents(this, components);
+    }
+
+    List<Object> encodePartitionComponents(List<Object> rawPartitionComponents) {
+        return null;
+    }
+
+    List<Object> encodePartitionComponentsIN(List<Object> rawPartitionComponentsIN) {
+        return null;
+    }
+
+    List<Object> encodeClusteringKeys(List<Object> rawClusteringKeys) {
+        return null;
+    }
+
+    List<Object> encodeClusteringKeysIN(List<Object> rawClusteringKeysIN) {
+        return null;
     }
 
     public String forceEncodeToJSON(Object object) {

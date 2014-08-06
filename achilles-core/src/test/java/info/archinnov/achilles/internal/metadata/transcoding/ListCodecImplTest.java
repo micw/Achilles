@@ -27,7 +27,7 @@ import java.util.List;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.Test;
 
-public class ListTranscoderTest {
+public class ListCodecImplTest {
 
 	private ListTranscoder transcoder = new ListTranscoder(mock(ObjectMapper.class));
 

@@ -686,52 +686,6 @@ public class PropertyParserTest {
     }
 
     @Test
-    public void should_infer_value_class_from_list() throws Exception {
-        @SuppressWarnings("unused")
-        class Test {
-            private List<String> friends;
-        }
-
-        Type type = Test.class.getDeclaredField("friends").getGenericType();
-
-        Class<String> infered = parser.inferValueClassForListOrSet(type, Test.class);
-
-        assertThat(infered).isEqualTo(String.class);
-    }
-
-    @SuppressWarnings("rawtypes")
-    @Test
-    public void should_infer_parameterized_value_class_from_list() throws Exception {
-        @SuppressWarnings("unused")
-        class Test {
-            private List<Class<Void>> friends;
-        }
-
-        Type type = Test.class.getDeclaredField("friends").getGenericType();
-
-        Class infered = parser.inferValueClassForListOrSet(type, Test.class);
-
-        assertThat(infered).isEqualTo(Class.class);
-    }
-
-    @Test
-    public void should_exception_when_infering_value_type_from_raw_list() throws Exception {
-        @SuppressWarnings({ "rawtypes", "unused" })
-        class Test {
-            private List friends;
-        }
-
-        Type type = Test.class.getDeclaredField("friends").getGenericType();
-
-        expectedEx.expect(AchillesBeanMappingException.class);
-        expectedEx.expectMessage("The type '" + type.getClass().getCanonicalName()
-                + "' of the entity 'null' should be parameterized");
-
-        parser.inferValueClassForListOrSet(type, Test.class);
-
-    }
-
-    @Test
     public void should_find_index() throws Exception {
         class Test {
             @Index

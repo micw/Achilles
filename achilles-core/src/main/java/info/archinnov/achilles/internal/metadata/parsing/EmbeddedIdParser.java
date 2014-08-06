@@ -145,8 +145,7 @@ public class EmbeddedIdParser {
 
         log.debug("Validate component ordering for @EmbeddedId class {} ", embeddedIdClassName);
 
-        Validator.validateBeanMappingTrue(orderSum == check,
-                "The component ordering is wrong for @EmbeddedId class '%s'", embeddedIdClassName);
+        Validator.validateBeanMappingTrue(orderSum == check, "The component ordering is wrong for @EmbeddedId class '%s'", embeddedIdClassName);
     }
 
     private void validateConsistentPartitionKeys(Map<Integer, Field> componentsOrdering, String embeddedIdClassName) {

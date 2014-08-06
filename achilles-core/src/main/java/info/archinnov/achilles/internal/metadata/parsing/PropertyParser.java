@@ -113,31 +113,6 @@ public class PropertyParser {
     private PropertyParsingValidator validator = new PropertyParsingValidator();
     private PropertyFilter filter = new PropertyFilter();
 
-    public <T> Class<T> inferValueClassForListOrSet(Type genericType, Class<?> entityClass) {
-        log.debug("Infer parameterized value class for collection type {} of entity class {} ", genericType.toString(),
-                entityClass.getCanonicalName());
-
-        Class<T> valueClass;
-        if (genericType instanceof ParameterizedType) {
-            ParameterizedType pt = (ParameterizedType) genericType;
-            Type[] actualTypeArguments = pt.getActualTypeArguments();
-            if (actualTypeArguments.length > 0) {
-                Type type = actualTypeArguments[actualTypeArguments.length - 1];
-                valueClass = getClassFromType(type);
-            } else {
-                throw new AchillesBeanMappingException("The type '" + genericType.getClass().getCanonicalName()
-                        + "' of the entity '" + entityClass.getCanonicalName() + "' should be parameterized");
-            }
-        } else {
-            throw new AchillesBeanMappingException("The type '" + genericType.getClass().getCanonicalName()
-                    + "' of the entity '" + entityClass.getCanonicalName() + "' should be parameterized");
-        }
-
-        log.trace("Inferred value class : {}", valueClass.getCanonicalName());
-
-        return valueClass;
-    }
-
     public static String getIndexName(Field field) {
         log.debug("Check @Index annotation on field {} of class {}", field.getName(), field.getDeclaringClass().getCanonicalName());
         String indexName = null;
@@ -195,25 +170,12 @@ public class PropertyParser {
         return Pair.create(defaultGlobalRead, defaultGlobalWrite);
     }
 
-    @SuppressWarnings("unchecked")
-    public <T> Class<T> getClassFromType(Type type) {
-        log.debug("Infer class from type {}", type);
-        if (type instanceof ParameterizedType) {
-            ParameterizedType parameterizedType = (ParameterizedType) type;
-            return (Class<T>) parameterizedType.getRawType();
-        } else if (type instanceof Class) {
-            return (Class<T>) type;
-        } else {
-            throw new IllegalArgumentException("Cannot determine java class of type '" + type + "'");
-        }
-    }
-
     public Class<?> inferEntityClassFromInterceptor(Interceptor<?> interceptor) {
         for (Type type : interceptor.getClass().getGenericInterfaces()) {
             if (type instanceof ParameterizedType) {
                 final ParameterizedType parameterizedType = (ParameterizedType) type;
                 Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
-                return getClassFromType(actualTypeArguments[0]);
+                return TypeParser.getClassFromType(actualTypeArguments[0]);
             }
         }
         return null;
@@ -363,7 +325,7 @@ public class PropertyParser {
         final boolean staticColumn = isStaticColumn(field);
         Class<V> valueClass;
         Type genericType = field.getGenericType();
-        valueClass = inferValueClassForListOrSet(genericType, entityClass);
+        valueClass = TypeParser.inferValueClassForListOrSet(genericType, entityClass);
 
         Method[] accessors = entityIntrospector.findAccessors(entityClass, field);
         PropertyType type = LIST;
@@ -394,7 +356,7 @@ public class PropertyParser {
         Class<V> valueClass;
         Type genericType = field.getGenericType();
 
-        valueClass = inferValueClassForListOrSet(genericType, entityClass);
+        valueClass = TypeParser.inferValueClassForListOrSet(genericType, entityClass);
         Method[] accessors = entityIntrospector.findAccessors(entityClass, field);
         PropertyType type = SET;
 
@@ -422,7 +384,7 @@ public class PropertyParser {
         final boolean staticColumn = isStaticColumn(field);
         validator.validateMapGenerics(field, entityClass);
 
-        Pair<Class<K>, Class<V>> types = determineMapGenericTypes(field);
+        Pair<Class<K>, Class<V>> types = TypeParser.determineMapGenericTypes(field);
         Class<K> keyClass = types.left;
         Class<V> valueClass = types.right;
 
@@ -455,20 +417,6 @@ public class PropertyParser {
             propertyName = field.getName();
         }
         context.setCurrentPropertyName(propertyName);
-    }
-
-    private <K, V> Pair<Class<K>, Class<V>> determineMapGenericTypes(Field field) {
-        log.trace("Determine generic types for field Map<K,V> {} of entity class {}", field.getName(), field
-                .getDeclaringClass().getCanonicalName());
-
-        Type genericType = field.getGenericType();
-        ParameterizedType pt = (ParameterizedType) genericType;
-        Type[] actualTypeArguments = pt.getActualTypeArguments();
-
-        Class<K> keyClass = getClassFromType(actualTypeArguments[0]);
-        Class<V> valueClass = getClassFromType(actualTypeArguments[1]);
-
-        return Pair.create(keyClass, valueClass);
     }
 
     private EmbeddedIdProperties extractEmbeddedIdProperties(Class<?> keyClass) {

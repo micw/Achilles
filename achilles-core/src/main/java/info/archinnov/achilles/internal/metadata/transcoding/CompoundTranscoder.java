@@ -56,15 +56,22 @@ public class CompoundTranscoder extends AbstractTranscoder {
     @Override
     public List<Object> encodeToComponents(PropertyMeta pm, List<?> components) {
         log.trace("Encode {} to CQL components", components);
-        List<Object> encodedComponents = new ArrayList<>();
         List<Class<?>> componentClasses = pm.getComponentClasses();
-        for (Object component : components) {
+        String embeddedClassName = pm.getValueClass().getCanonicalName();
+
+        return encodeComponents(components, componentClasses, embeddedClassName);
+    }
+
+    public List<Object> encodeComponents(List<?> components, List<Class<?>> componentClasses, String embeddedClassName) {
+        List<Object> encodedComponents = new ArrayList<>();
+        for (int i=0; i<components.size(); i++) {
+            Object component = components.get(i);
+            Class<?> targetComponentClass = componentClasses.get(i);
             if (component != null) {
                 Class<?> componentClass = component.getClass();
-                Validator.validateTrue(componentClasses.contains(componentClass),
-                        "The component {} for embedded id {} has an unknown type. Valid types are {}", component, pm
-                        .getValueClass().getCanonicalName(), componentClasses);
-                Object encoded = super.encodeInternal(componentClass, component);
+                Validator.validateTrue(targetComponentClass.equals(componentClass), "The component '%s' for embedded id '%s' has an unknown type. Valid type is '%s'",
+                        component, embeddedClassName, targetComponentClass.getCanonicalName());
+                Object encoded = super.encodeInternal(targetComponentClass, component);
                 encodedComponents.add(encoded);
             }
         }

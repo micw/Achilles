@@ -388,6 +388,24 @@ public class EntityMeta {
         return encodedValue;
     }
 
+    public List<Object> encodePartitionComponents(List<Object> rawPartitionComponents) {
+        return null;
+    }
+
+    public List<Object> encodePartitionComponentsIN(List<Object> rawPartitionComponentsIN) {
+        return null;
+    }
+
+    public List<Object> encodeClusteringKeys(List<Object> rawClusteringKeys) {
+        return null;
+    }
+
+    public List<Object> encodeClusteringKeysIN(List<Object> rawClusteringKeysIN) {
+        return null;
+    }
+
+
+
     private Object encodeValueForProperty(String columnName, Object rawValue) {
         Object encodedValue = rawValue;
         if (rawValue != null) {
@@ -396,6 +414,7 @@ public class EntityMeta {
         }
         return encodedValue;
     }
+
 
     public List<PropertyMeta> retrievePropertyMetasForInsert(Object entity) {
         if (insertStrategy == InsertStrategy.ALL_FIELDS) {
@@ -434,6 +453,7 @@ public class EntityMeta {
     public boolean isEmbeddedId() {
         return idMeta.isEmbeddedId();
     }
+
 
     public static enum EntityState {
         MANAGED(true),

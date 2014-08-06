@@ -131,10 +131,9 @@ public class CompoundTranscoderTest {
 		PropertyMeta pm = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class).type(EMBEDDED_ID)
 				.compClasses(Long.class, String.class, PropertyType.class).build();
 
-		List<Object> actual = transcoder.encodeToComponents(pm,
-				Arrays.<Object> asList(userId, PropertyType.EMBEDDED_ID, name));
+		List<Object> actual = transcoder.encodeToComponents(pm,Arrays.<Object> asList(userId, name, PropertyType.EMBEDDED_ID));
 
-		assertThat(actual).containsExactly(userId, "EMBEDDED_ID", name);
+		assertThat(actual).containsExactly(userId, name, "EMBEDDED_ID");
 	}
 
 	@Test

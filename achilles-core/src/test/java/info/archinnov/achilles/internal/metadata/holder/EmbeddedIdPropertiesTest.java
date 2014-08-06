@@ -185,4 +185,5 @@ public class EmbeddedIdPropertiesTest {
 		assertThat(props.extractPartitionComponents(components)).containsExactly(10L);
 		assertThat(props.extractClusteringComponents(components)).containsExactly(date, "name");
 	}
+
 }

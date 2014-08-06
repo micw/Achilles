@@ -16,6 +16,8 @@
 package info.archinnov.achilles.internal.metadata.holder;
 
 import static info.archinnov.achilles.schemabuilder.Create.Options.ClusteringOrder;
+
+import info.archinnov.achilles.internal.metadata.transcoding.DataTranscoder;
 import info.archinnov.achilles.internal.validation.Validator;
 
 import java.lang.reflect.Field;
@@ -60,14 +62,6 @@ public class EmbeddedIdProperties extends AbstractComponentProperties {
         this.clusteringComponents.validateClusteringComponentsIn(className, clusteringComponents);
     }
 
-	String getVaryingComponentNameForQuery(int fixedComponentsSize) {
-		log.trace("Get varying component name for query");
-		if (fixedComponentsSize > 0)
-			return getComponentNames().get(fixedComponentsSize);
-		else
-			return getClusteringComponentNames().get(0);
-	}
-
 	public boolean isCompositePartitionKey() {
 		return partitionComponents.isComposite();
 	}
@@ -108,13 +102,6 @@ public class EmbeddedIdProperties extends AbstractComponentProperties {
 		return timeUUIDComponents;
 	}
 
-	@Override
-	public String toString() {
-
-		return Objects.toStringHelper(this.getClass()).add("partitionComponents", partitionComponents)
-				.add("clusteringComponents", clusteringComponents).toString();
-
-	}
 
 	List<Object> extractPartitionComponents(List<Object> components) {
 		log.trace("Extract partition key components from {}", components);
@@ -133,4 +120,13 @@ public class EmbeddedIdProperties extends AbstractComponentProperties {
 				"Cannot extract clustering components from components list '%s'", components);
 		return components.subList(partitionComponentsCount, components.size());
 	}
+
+	@Override
+	public String toString() {
+
+		return Objects.toStringHelper(this.getClass()).add("partitionComponents", partitionComponents)
+				.add("clusteringComponents", clusteringComponents).toString();
+
+	}
+
 }
