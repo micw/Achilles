@@ -16,8 +16,6 @@
 
 package info.archinnov.achilles.internal.metadata.holder;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.commons.lang.ArrayUtils;

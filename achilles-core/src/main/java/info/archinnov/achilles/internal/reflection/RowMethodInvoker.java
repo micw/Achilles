@@ -73,34 +73,13 @@ public class RowMethodInvoker {
     }
 
     public Object extractCompoundPrimaryKeyFromRow(Row row, EntityMeta meta,PropertyMeta pm, EntityState entityState) {
-        log.trace("Extract compound primary key {} from CQL row for entity class {}", pm.getPropertyName(),
-                pm.getEntityClassName());
-        List<String> componentNames = pm.getCQLComponentNames();
-        List<Class<?>> componentClasses = pm.getComponentClasses();
-        List<Object> rawValues = new ArrayList<>(Collections.nCopies(componentNames.size(), null));
-
-        try {
-            for (Definition column : row.getColumnDefinitions()) {
-                String columnName = column.getName();
-                int index = componentNames.indexOf(columnName);
-                Object rawValue;
-                if (index >= 0) {
-                    Class<?> componentClass = componentClasses.get(index);
-                    rawValue = getRowMethod(componentClass).invoke(row, columnName);
-                    rawValues.set(index, rawValue);
-                }
-            }
-            if (entityState.isManaged() && !meta.hasOnlyStaticColumns()) {
-                for (int i = 0; i < componentNames.size(); i++) {
-                    Validator.validateNotNull(rawValues.get(i),"Error, the component '%s' from @EmbeddedId class '%s' cannot be found in Cassandra",
-                            componentNames.get(i), pm.getValueClass());
-                }
-            }
-            return pm.decodeFromComponents(rawValues);
-        } catch (Exception e) {
-            throw new AchillesException("Cannot retrieve compound primary key for entity class '"
-                    + pm.getEntityClassName() + "' from CQL Row", e);
+        log.trace("Extract compound primary key {} from CQL row for entity class {}", pm.getPropertyName(),pm.getEntityClassName());
+        final List<Object> rawComponents = pm.extractRawCompoundPrimaryComponentsFromRow(row);
+        if (entityState.isManaged() && !meta.hasOnlyStaticColumns()) {
+            pm.validateExtractedCompoundPrimaryComponents(rawComponents, pm.getValueClass());
         }
+        return pm.decodeFromComponents(rawComponents);
+
     }
 
     private Object invokeOnRowForProperty(Row row, PropertyMeta pm, String propertyName, Class<?> valueClass) {

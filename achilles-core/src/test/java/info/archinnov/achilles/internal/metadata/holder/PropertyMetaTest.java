@@ -190,92 +190,6 @@ public class PropertyMetaTest {
 	}
 
 	@Test
-	public void should_get_component_getters() throws Exception {
-		Method idGetter = EmbeddedKey.class.getDeclaredMethod("getUserId");
-		Method nameGetter = EmbeddedKey.class.getDeclaredMethod("getName");
-
-		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class)
-				.build();
-
-		assertThat(idMeta.getComponentGetters()).containsExactly(idGetter, nameGetter);
-	}
-
-	@Test
-	public void should_return_empty_list_when_no_component_getters() throws Exception {
-
-		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class).build();
-
-		assertThat(idMeta.getComponentGetters()).isEmpty();
-	}
-
-	@Test
-	public void should_get_partition_key_field() throws Exception {
-		Field idField = EmbeddedKey.class.getDeclaredField("userId");
-		Field nameField = EmbeddedKey.class.getDeclaredField("name");
-
-		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class)
-				.build();
-
-		assertThat(idMeta.getPartitionKeyField()).isEqualTo(idField);
-	}
-
-	@Test
-	public void should_return_null_when_no_partition_key_field() throws Exception {
-		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class).build();
-
-		assertThat(idMeta.getPartitionKeyField()).isNull();
-	}
-
-	@Test
-	public void should_get_component_names() throws Exception {
-		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class).build();
-
-		assertThat(idMeta.getComponentNames()).containsExactly("a", "b");
-	}
-
-	@Test
-	public void should_get_empty_component_names() throws Exception {
-		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class).build();
-
-		assertThat(idMeta.getComponentNames()).isEmpty();
-	}
-
-	@Test
-	public void should_get_component_setters() throws Exception {
-		Method idSetter = EmbeddedKey.class.getDeclaredMethod("setUserId", Long.class);
-		Method nameSetter = EmbeddedKey.class.getDeclaredMethod("setName", String.class);
-
-		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class)
-				.build();
-
-		assertThat(idMeta.getComponentSetters()).containsExactly(idSetter, nameSetter);
-	}
-
-	@Test
-	public void should_return_empty_list_when_no_component_setters() throws Exception {
-
-		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class).build();
-
-		assertThat(idMeta.getComponentSetters()).isEmpty();
-	}
-
-	@Test
-	public void should_get_component_classes() throws Exception {
-
-		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class).build();
-
-		assertThat(idMeta.getComponentClasses()).containsExactly(Long.class, String.class);
-	}
-
-	@Test
-	public void should_return_empty_list_when_no_component_classes() throws Exception {
-
-		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class).build();
-
-		assertThat(idMeta.getComponentClasses()).isEmpty();
-	}
-
-	@Test
 	public void should_return_true_for_is_embedded_id() throws Exception {
 		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class).type(EMBEDDED_ID).build();
 
@@ -399,36 +313,6 @@ public class PropertyMetaTest {
 		exception.expectMessage("Cannot get primary key on a non id field 'property'");
 
 		pm.getPrimaryKey(entity);
-	}
-
-	@Test
-	public void should_get_partition_key() throws Exception {
-
-		long id = RandomUtils.nextLong();
-		EmbeddedKey embeddedKey = new EmbeddedKey(id, "name");
-
-		PropertyMeta pm = new PropertyMeta();
-		pm.setType(EMBEDDED_ID);
-		pm.setInvoker(invoker);
-
-		when(invoker.getPartitionKey(embeddedKey, pm)).thenReturn(id);
-
-		assertThat(pm.getPartitionKey(embeddedKey)).isEqualTo(id);
-	}
-
-	@Test
-	public void should_exception_when_asking_partition_key_on_non_embedded_id_field() throws Exception {
-
-		EmbeddedKey embeddedKey = new EmbeddedKey();
-
-		PropertyMeta pm = new PropertyMeta();
-		pm.setPropertyName("property");
-		pm.setType(SIMPLE);
-
-		exception.expect(IllegalStateException.class);
-		exception.expectMessage("Cannot get partition key on a non embedded id field 'property'");
-
-		pm.getPartitionKey(embeddedKey);
 	}
 
 	@Test

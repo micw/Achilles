@@ -52,20 +52,6 @@ public class ReflectionInvoker {
 		return null;
 	}
 
-	public Object getPartitionKey(Object compoundKey, PropertyMeta idMeta) {
-		if (idMeta.isEmbeddedId()) {
-			final Field partitionKeyField = idMeta.getPartitionKeyField();
-			try {
-				return accessor.getValueFromField(partitionKeyField, compoundKey);
-			} catch (IllegalAccessException | IllegalArgumentException e) {
-				throw new AchillesException("Cannot get partition key from field '" + partitionKeyField.getName()
-						+ "' of type '" + partitionKeyField.getDeclaringClass().getCanonicalName()
-						+ "' from compoundKey '" + compoundKey + "'", e);
-			}
-		}
-		return null;
-	}
-
 	public <T> T getValueFromField(Object target, Field field) {
 		log.trace("Get value from field {} from instance {} of class {}", field.getName(), target, field
 				.getDeclaringClass().getCanonicalName());

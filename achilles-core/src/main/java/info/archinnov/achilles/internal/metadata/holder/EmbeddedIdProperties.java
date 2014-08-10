@@ -15,23 +15,32 @@
  */
 package info.archinnov.achilles.internal.metadata.holder;
 
+import static com.datastax.driver.core.querybuilder.QueryBuilder.bindMarker;
+import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
+import static info.archinnov.achilles.internal.cql.TypeMapper.getRowMethod;
 import static info.archinnov.achilles.schemabuilder.Create.Options.ClusteringOrder;
+import static java.lang.String.format;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Function;
+import com.datastax.driver.core.ColumnDefinitions;
+import com.datastax.driver.core.Row;
+import com.datastax.driver.core.querybuilder.Delete;
+import com.datastax.driver.core.querybuilder.Insert;
+import com.datastax.driver.core.querybuilder.Select;
+import com.datastax.driver.core.querybuilder.Update;
+import com.google.common.base.Optional;
 import info.archinnov.achilles.exception.AchillesException;
 import info.archinnov.achilles.internal.validation.Validator;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
+import info.archinnov.achilles.type.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Objects;
-
-import javax.sql.rowset.Predicate;
 
 public class EmbeddedIdProperties extends AbstractComponentProperties {
 
@@ -47,6 +56,7 @@ public class EmbeddedIdProperties extends AbstractComponentProperties {
         this.entityClassName = entityClassName;
     }
 
+    // Components Validation
 	void validatePartitionComponents(String className,Object...partitionComponents) {
 		this.partitionComponents.validatePartitionComponents(className, partitionComponents);
 	}
@@ -63,50 +73,12 @@ public class EmbeddedIdProperties extends AbstractComponentProperties {
         this.clusteringComponents.validateClusteringComponentsIn(className, clusteringComponents);
     }
 
-	public boolean isCompositePartitionKey() {
-		return partitionComponents.isComposite();
-	}
-
-	public boolean isClustered() {
-		return clusteringComponents.isClustered();
-	}
-
-	public String getOrderingComponent() {
-		return clusteringComponents.getOrderingComponent();
-	}
-
-	public List<ClusteringOrder> getCluseringOrders() {
-		return clusteringComponents.getClusteringOrders();
-	}
-
-	public List<String> getClusteringComponentNames() {
-		return clusteringComponents.getComponentNames();
-	}
-
-	public List<Class<?>> getClusteringComponentClasses() {
-		return clusteringComponents.getComponentClasses();
-	}
-
-	public List<String> getPartitionComponentNames() {
-		return partitionComponents.getComponentNames();
-	}
-
-	public List<Class<?>> getPartitionComponentClasses() {
-		return partitionComponents.getComponentClasses();
-	}
-
-	public List<Field> getPartitionComponentFields() {
-		return partitionComponents.getComponentFields();
-	}
-
 	@Override
 	public String toString() {
-
-		return Objects.toStringHelper(this.getClass()).add("partitionComponents", partitionComponents)
-				.add("clusteringComponents", clusteringComponents).toString();
-
+		return Objects.toStringHelper(this.getClass()).add("partitionComponents", partitionComponents).add("clusteringComponents", clusteringComponents).toString();
 	}
 
+    // Transcoding
     public Object decodeFromComponents(Object newInstance, List<?> components) {
         log.trace("Decode from CQL components {}", components);
         Validator.validateTrue(components.size() == this.propertyMetas.size(), "There should be exactly '%s' Cassandra columns to decode into an '%s' instance", this.propertyMetas.size(), newInstance.getClass().getCanonicalName());
@@ -176,5 +148,156 @@ public class EmbeddedIdProperties extends AbstractComponentProperties {
         return encoded;
     }
 
+    // Utility
+    public boolean isCompositePartitionKey() {
+        return partitionComponents.isComposite();
+    }
 
+    public boolean isClustered() {
+        return clusteringComponents.isClustered();
+    }
+
+    public String getOrderingComponent() {
+        return clusteringComponents.getOrderingComponent();
+    }
+
+    public List<ClusteringOrder> getCluseringOrders() {
+        return clusteringComponents.getClusteringOrders();
+    }
+
+    public List<String> getClusteringComponentNames() {
+        return clusteringComponents.getCQL3ComponentNames();
+    }
+
+    public List<Class<?>> getClusteringComponentClasses() {
+        return clusteringComponents.getComponentClasses();
+    }
+
+    public List<String> getPartitionComponentNames() {
+        return partitionComponents.getCQL3ComponentNames();
+    }
+
+    public List<Class<?>> getPartitionComponentClasses() {
+        return partitionComponents.getComponentClasses();
+    }
+
+    public List<Field> getPartitionComponentFields() {
+        return partitionComponents.getComponentFields();
+    }
+
+    //CQL3 extraction
+    List<Object> extractRawCompoundPrimaryComponentsFromRow(Row row) {
+        final List<Class<?>> componentClasses = getComponentClasses();
+        final List<String> cql3ComponentNames = getCQL3ComponentNames();
+        List<Object> rawValues = new ArrayList<>(Collections.nCopies(cql3ComponentNames.size(), null));
+        try {
+            for (ColumnDefinitions.Definition column : row.getColumnDefinitions()) {
+                String columnName = column.getName();
+                int index = cql3ComponentNames.indexOf(columnName);
+                Object rawValue;
+                if (index >= 0) {
+                    Class<?> componentClass = componentClasses.get(index);
+                    rawValue = getRowMethod(componentClass).invoke(row, columnName);
+                    rawValues.set(index, rawValue);
+                }
+            }
+        } catch (Exception e) {
+            throw new AchillesException(format("Cannot retrieve compound primary key for entity class '%s' from CQL Row", entityClassName), e);
+        }
+        return rawValues;
+    }
+
+    void validateExtractedCompoundPrimaryComponents(List<Object> rawComponents, Class<?> primaryKeyClass) {
+        final List<String> cql3ComponentNames = getCQL3ComponentNames();
+        for (int i = 0; i < cql3ComponentNames.size(); i++) {
+            Validator.validateNotNull(rawComponents.get(i), "Error, the component '%s' from @EmbeddedId class '%s' cannot be found in Cassandra", cql3ComponentNames.get(i), primaryKeyClass);
+        }
+    }
+
+    // CQL3 statement generation
+    Delete.Where prepareWhereClauseForDelete(boolean onlyStaticColumns, Delete mainFrom) {
+        Delete.Where where = null;
+        List<String> componentNames;
+        if (onlyStaticColumns) {
+            componentNames = getPartitionComponentNames();
+        } else {
+            componentNames = getComponentNames();
+        }
+
+        int i = 0;
+        for (String clusteredId : componentNames) {
+            if (i ++== 0) {
+                where = mainFrom.where(eq(clusteredId, bindMarker(clusteredId)));
+            } else {
+                where.and(eq(clusteredId, bindMarker(clusteredId)));
+            }
+        }
+        return where;
+    }
+
+    Select.Where prepareWhereClauseForSelect(Optional<PropertyMeta> pmO, Select from) {
+        Select.Where where = null;
+        int i = 0;
+        List<String> componentNames;
+        if (pmO.isPresent() && pmO.get().isStaticColumn()) {
+            componentNames = getPartitionComponentNames();
+        } else {
+            componentNames = getCQL3ComponentNames();
+        }
+        for (String partitionKey : componentNames) {
+            if (i++ == 0) {
+                where = from.where(eq(partitionKey, bindMarker(partitionKey)));
+            } else {
+                where.and(eq(partitionKey, bindMarker(partitionKey)));
+            }
+        }
+        return where;
+    }
+
+    Insert prepareInsertPrimaryKey(Insert insert) {
+        for (String component : getComponentNames()) {
+            insert.value(component, bindMarker(component));
+        }
+        return insert;
+    }
+
+    Update.Where prepareCommonWhereClauseForUpdate(Update.Assignments assignments, boolean onlyStaticColumns, Update.Where where) {
+        int i = 0;
+        if (onlyStaticColumns) {
+            for (String partitionKeys : getPartitionComponentNames()) {
+                if (i++ == 0) {
+                    where = assignments.where(eq(partitionKeys, bindMarker(partitionKeys)));
+                } else {
+                    where.and(eq(partitionKeys, bindMarker(partitionKeys)));
+                }
+            }
+        } else {
+            for (String clusteredId : getCQL3ComponentNames()) {
+                if (i++ == 0) {
+                    where = assignments.where(eq(clusteredId, bindMarker(clusteredId)));
+                } else {
+                    where.and(eq(clusteredId, bindMarker(clusteredId)));
+                }
+            }
+        }
+        return where;
+    }
+
+    Pair<Update.Where, Object[]> generateWhereClauseForUpdate(Object primaryKey, PropertyMeta pm, Update.Assignments update) {
+        List<String> componentNames = getComponentNames();
+        List<Object> encodedComponents = encodeToComponents(primaryKey, pm.isStaticColumn());
+        Object[] boundValues = new Object[encodedComponents.size()];
+        Update.Where where = null;
+        for (int i = 0; i < encodedComponents.size(); i++) {
+            String componentName = componentNames.get(i);
+            Object componentValue = encodedComponents.get(i);
+            if (i == 0) {
+                where = update.where(eq(componentName, componentValue));
+            } else {
+                where.and(eq(componentName, componentValue));
+            }
+            boundValues[i] = componentValue;
+        }
+        return Pair.create(where, boundValues);
+    }
 }

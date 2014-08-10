@@ -77,8 +77,7 @@ public class StatementGenerator {
                 throw new AchillesException(String.format("Should not generate non-prepapred statement for collection/map change of type '%s'", operationType));
         }
 
-        final Pair<Update.Where, Object[]> whereClauseAndBoundValues = generateWhereClauseForUpdate(entity, meta.getIdMeta(),
-                changeSet.getPropertyMeta(), updateClauseAndBoundValues.left);
+        final Pair<Update.Where, Object[]> whereClauseAndBoundValues = meta.getIdMeta().generateWhereClauseForUpdate(entity, changeSet.getPropertyMeta(), updateClauseAndBoundValues.left);
         boundValues = addAll(addAll(boundValues, addAll(updateClauseAndBoundValues.right, whereClauseAndBoundValues.right)), casEncodedValues.toArray());
         return Pair.create(whereClauseAndBoundValues.left, boundValues);
     }
@@ -91,32 +90,6 @@ public class StatementGenerator {
             conditions.and(CASCondition.toClause());
         }
         return casEncodedValues;
-    }
-
-    private Pair<Update.Where, Object[]> generateWhereClauseForUpdate(Object entity, PropertyMeta idMeta, PropertyMeta pm, Assignments update) {
-        Update.Where where = null;
-        Object[] boundValues;
-        Object primaryKey = idMeta.getPrimaryKey(entity);
-        if (idMeta.isEmbeddedId()) {
-            List<String> componentNames = idMeta.getComponentNames();
-            List<Object> encodedComponents = idMeta.encodeToComponents(primaryKey, pm.isStaticColumn());
-            boundValues = new Object[encodedComponents.size()];
-            for (int i = 0; i < encodedComponents.size(); i++) {
-                String componentName = componentNames.get(i);
-                Object componentValue = encodedComponents.get(i);
-                if (i == 0) {
-                    where = update.where(eq(componentName, componentValue));
-                } else {
-                    where.and(eq(componentName, componentValue));
-                }
-                boundValues[i] = componentValue;
-            }
-        } else {
-            Object id = idMeta.encode(primaryKey);
-            where = update.where(eq(idMeta.getPropertyName(), id));
-            boundValues = new Object[] { id };
-        }
-        return Pair.create(where, boundValues);
     }
 
 }

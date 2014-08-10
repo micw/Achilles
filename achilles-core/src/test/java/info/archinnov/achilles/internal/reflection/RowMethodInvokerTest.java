@@ -75,8 +75,7 @@ public class RowMethodInvokerTest {
         when(pm.<Integer>getKeyClass()).thenReturn(Integer.class);
         when(pm.<String>getValueClass()).thenReturn(String.class);
         when(row.isNull("property")).thenReturn(false);
-        when(pm.getComponentNames()).thenReturn(compNames);
-        when(pm.getComponentClasses()).thenReturn(compClasses);
+//        when(pm.getComponentNames()).thenReturn(compNames);
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })

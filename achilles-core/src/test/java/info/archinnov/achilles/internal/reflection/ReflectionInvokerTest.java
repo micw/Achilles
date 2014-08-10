@@ -196,43 +196,6 @@ public class ReflectionInvokerTest {
 	}
 
 	@Test
-	public void should_get_partition_key() throws Exception {
-		long partitionKey = RandomUtils.nextLong();
-		Field userIdField = EmbeddedKey.class.getDeclaredField("userId");
-		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class)
-				.type(PropertyType.EMBEDDED_ID).build();
-
-		EmbeddedKey embeddedKey = new EmbeddedKey(partitionKey, "name");
-
-		assertThat(invoker.getPartitionKey(embeddedKey, idMeta)).isEqualTo(partitionKey);
-	}
-
-	@Test
-	public void should_exception_when_getting_partition_key() throws Exception {
-
-		Field userIdField = EmbeddedKey.class.getDeclaredField("userId");
-		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class)
-				.type(PropertyType.EMBEDDED_ID).build();
-
-		exception.expect(AchillesException.class);
-		exception.expectMessage("Cannot get partition key from field 'userId' of type '"
-				+ EmbeddedKey.class.getCanonicalName() + "' from compoundKey 'compound'");
-
-		invoker.getPartitionKey("compound", idMeta);
-	}
-
-	@Test
-	public void should_return_null_for_partition_key_if_not_embedded_id() throws Exception {
-		long partitionKey = RandomUtils.nextLong();
-		Field userIdField = EmbeddedKey.class.getDeclaredField("userId");
-		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class)
-				.type(PropertyType.ID).build();
-
-		EmbeddedKey embeddedKey = new EmbeddedKey(partitionKey, "name");
-		assertThat(invoker.getPartitionKey(embeddedKey, idMeta)).isNull();
-	}
-
-	@Test
 	public void should_instanciate_entity_from_class() throws Exception {
 		EmbeddedKey actual = invoker.instantiate(EmbeddedKey.class);
 		assertThat(actual).isNotNull();

@@ -15,6 +15,8 @@
  */
 package info.archinnov.achilles.internal.metadata.holder;
 
+import static com.datastax.driver.core.querybuilder.QueryBuilder.bindMarker;
+import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
 import static info.archinnov.achilles.schemabuilder.Create.Options.ClusteringOrder;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -27,7 +29,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.datastax.driver.core.RegularStatement;
+import com.datastax.driver.core.Row;
+import com.datastax.driver.core.querybuilder.Delete;
+import com.datastax.driver.core.querybuilder.Insert;
+import com.datastax.driver.core.querybuilder.Select;
+import com.datastax.driver.core.querybuilder.Update;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Optional;
+import com.google.common.collect.Sets;
 import info.archinnov.achilles.internal.metadata.transcoding.codec.*;
 import info.archinnov.achilles.internal.validation.Validator;
 import info.archinnov.achilles.json.DefaultJacksonMapper;
@@ -97,62 +107,85 @@ public class PropertyMeta {
     protected SetCodec setCodec;
     protected MapCodec mapCodec;
 
-    public List<Field> getComponentFields() {
-        log.trace("Get component fields");
-        List<Field> compFields = new ArrayList<>();
-        if (embeddedIdProperties != null) {
-            compFields = embeddedIdProperties.getComponentFields();
-        }
-        return compFields;
+    // CQL3 Extraction
+    public List<Object> extractRawCompoundPrimaryComponentsFromRow(Row row) {
+        Validator.validateNotNull(embeddedIdProperties, "Cannot extract raw compound primary keys from CQL3 row because entity '%s' does not have a compound primary key",entityClassName);
+        return embeddedIdProperties.extractRawCompoundPrimaryComponentsFromRow(row);
     }
 
-    public List<Method> getComponentGetters() {
-        log.trace("Get component getters");
-        List<Method> compGetters = new ArrayList<>();
-        if (embeddedIdProperties != null) {
-            compGetters = embeddedIdProperties.getComponentGetters();
-        }
-        return compGetters;
+    public void validateExtractedCompoundPrimaryComponents(List<Object> rawComponents, Class<?> primaryKeyClass) {
+        Validator.validateNotNull(embeddedIdProperties, "Cannot validate raw compound primary keys from CQL3 row because entity '%s' does not have a compound primary key",entityClassName);
+        embeddedIdProperties.validateExtractedCompoundPrimaryComponents(rawComponents, primaryKeyClass);
     }
 
-    public Field getPartitionKeyField() {
-        log.trace("Get partition key field");
-        Field field = null;
-        if (embeddedIdProperties != null) {
-            field = embeddedIdProperties.getComponentFields().get(0);
+    // CQL3 statements generation
+    public RegularStatement prepareWhereClauseForDelete(boolean onlyStaticColumns, Delete mainFrom) {
+        if (isEmbeddedId()) {
+            return embeddedIdProperties.prepareWhereClauseForDelete(onlyStaticColumns, mainFrom);
+        } else {
+            return mainFrom.where(eq(getCQL3PropertyName(), bindMarker(getCQL3PropertyName())));
         }
-        return field;
     }
 
-    public List<Method> getComponentSetters() {
-        log.trace("Get component setters");
-        List<Method> compSetters = new ArrayList<>();
-        if (embeddedIdProperties != null) {
-            compSetters = embeddedIdProperties.getComponentSetters();
+    public RegularStatement prepareWhereClauseForSelect(Optional<PropertyMeta> pmO, Select from) {
+        if (isEmbeddedId()) {
+            return embeddedIdProperties.prepareWhereClauseForSelect(pmO, from);
+        } else {
+            return from.where(eq(getCQL3PropertyName(), bindMarker(getCQL3PropertyName())));
         }
-        return compSetters;
     }
 
-    public List<Class<?>> getComponentClasses() {
-        List<Class<?>> compClasses = new ArrayList<>();
-        if (embeddedIdProperties != null) {
-            compClasses = embeddedIdProperties.getComponentClasses();
+    public Insert prepareInsertPrimaryKey(Insert insert) {
+        if (isEmbeddedId()) {
+            return embeddedIdProperties.prepareInsertPrimaryKey(insert);
+        } else {
+            return insert.value(getCQL3PropertyName(), bindMarker(getCQL3PropertyName()));
         }
-        return compClasses;
     }
 
-    public List<String> getComponentNames() {
-        log.trace("Get component classes");
-        List<String> components = new ArrayList<>();
-        if (embeddedIdProperties != null) {
-            return embeddedIdProperties.getComponentNames();
-        }
-        return components;
+    public Update.Where prepareCommonWhereClauseForUpdate(Update.Assignments assignments, boolean onlyStaticColumns, Update.Where where) {
+        Validator.validateNotNull(embeddedIdProperties, "Cannot prepare common WHERE clause for update because entity '%s' does not have a compound primary key",entityClassName);
+        return embeddedIdProperties.prepareCommonWhereClauseForUpdate(assignments, onlyStaticColumns, where);
     }
 
-    public List<String> getCQLComponentNames() {
-        log.trace("Get CQL component names");
-        return FluentIterable.from(getComponentNames()).transform(TO_LOWER_CASE).toList();
+    public Pair<Update.Where, Object[]> generateWhereClauseForUpdate(Object entity, PropertyMeta pm, Update.Assignments update) {
+        Object primaryKey = getPrimaryKey(entity);
+        if (isEmbeddedId()) {
+            return embeddedIdProperties.generateWhereClauseForUpdate(primaryKey, pm, update);
+        } else {
+            Object id = encodeToCassandra(primaryKey);
+            Update.Where where = update.where(eq(getCQL3PropertyName(), id));
+            Object[] boundValues = new Object[] { id };
+            return Pair.create(where, boundValues);
+        }
+    }
+
+    public Select.Selection prepareSelectField(Select.Selection select) {
+        if (isEmbeddedId()) {
+            for (String component : embeddedIdProperties.getCQL3ComponentNames()) {
+                select = select.column(component);
+            }
+            return select;
+        } else {
+            return select.column(getCQL3PropertyName());
+        }
+    }
+
+    //Statement Caches
+    public Set<String> extractClusteredFieldsIfNecessary() {
+        if (isEmbeddedId()) {
+            return new HashSet<>(embeddedIdProperties.getCQL3ComponentNames());
+        } else {
+            return Sets.newHashSet(getCQL3PropertyName());
+        }
+    }
+
+    //Validation
+
+    public List<String> getCQL3ComponentNames() {
+        log.trace("Get CQL3 primary component names");
+        Validator.validateNotNull(embeddedIdProperties, "Cannot retrieve CQL3 primary key component names because entity '%s' does not have a compound primary key",entityClassName);
+        return embeddedIdProperties.getCQL3ComponentNames();
     }
 
     public List<String> getClusteringComponentNames() {
@@ -297,6 +330,7 @@ public class PropertyMeta {
     public Object decodeFromCassandra(Object fromCassandra) {
         switch (type) {
             case SIMPLE:
+            case ID:
                 return simpleCodec.decode(fromCassandra);
             case LIST:
                 return listCodec.decode((List)fromCassandra);
@@ -312,6 +346,7 @@ public class PropertyMeta {
     public Object encodeToCassandra(Object fromJava) {
         switch (type) {
             case SIMPLE:
+            case ID:
                 return simpleCodec.encode(fromJava);
             case LIST:
                 return listCodec.encode((List) fromJava);
@@ -397,16 +432,6 @@ public class PropertyMeta {
             return invoker.getPrimaryKey(entity, this);
         } else {
             throw new IllegalStateException("Cannot get primary key on a non id field '" + propertyName + "'");
-        }
-    }
-
-    public Object getPartitionKey(Object compoundKey) {
-        log.trace("Extract partition key from primary compound key {}", compoundKey);
-        if (type.isEmbeddedId()) {
-            return invoker.getPartitionKey(compoundKey, this);
-        } else {
-            throw new IllegalStateException("Cannot get partition key on a non embedded id field '" + propertyName
-                    + "'");
         }
     }
 

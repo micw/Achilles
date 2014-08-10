@@ -63,7 +63,7 @@ public class CacheManager {
 
         Class<?> entityClass = context.getEntityClass();
         EntityMeta entityMeta = context.getEntityMeta();
-        Set<String> clusteredFields = extractClusteredFieldsIfNecessary(pm);
+        Set<String> clusteredFields = pm.extractClusteredFieldsIfNecessary();
         StatementCacheKey cacheKey = new StatementCacheKey(CacheType.SELECT_FIELD, clusteredFields, entityClass, noOptions());
         PreparedStatement ps = dynamicPSCache.getIfPresent(cacheKey);
         if (ps == null) {
@@ -151,14 +151,6 @@ public class CacheManager {
             displayCacheStatistics(dynamicPSCache);
         }
         return ps;
-    }
-
-    private Set<String> extractClusteredFieldsIfNecessary(PropertyMeta pm) {
-        if (pm.isEmbeddedId()) {
-            return new HashSet<>(pm.getComponentNames());
-        } else {
-            return Sets.newHashSet(pm.getPropertyName());
-        }
     }
 
     private void displayCacheStatistics(Cache<StatementCacheKey, PreparedStatement> dynamicPSCache) {

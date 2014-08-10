@@ -188,7 +188,6 @@ public class EntityParserTest {
         PropertyMeta idMeta = meta.getIdMeta();
 
         assertThat(idMeta.isEmbeddedId()).isTrue();
-        assertThat(idMeta.getComponentClasses()).containsExactly(Long.class, String.class);
 
         assertThat(meta.getPropertyMetas().get("name").isStaticColumn()).isTrue();
     }

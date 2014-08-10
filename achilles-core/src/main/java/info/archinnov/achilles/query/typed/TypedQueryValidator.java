@@ -19,7 +19,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.datastax.driver.core.RegularStatement;
-import com.datastax.driver.core.querybuilder.Select;
 import info.archinnov.achilles.internal.metadata.holder.EntityMeta;
 import info.archinnov.achilles.internal.metadata.holder.PropertyMeta;
 import info.archinnov.achilles.internal.validation.Validator;
@@ -40,7 +39,7 @@ public class TypedQueryValidator {
 		if (!queryString.contains("select *")) {
 			if (idMeta.isEmbeddedId()) {
 
-				for (String component : idMeta.getCQLComponentNames()) {
+				for (String component : idMeta.getCQL3ComponentNames()) {
 					Validator.validateTrue(queryString.contains(component),
 							"The typed query [%s] should contain the component column '%s' for embedded id type '%s'",
 							queryString, component, idMeta.getValueClass().getCanonicalName());
