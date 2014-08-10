@@ -24,7 +24,7 @@ import static info.archinnov.achilles.counter.AchillesCounter.CQL_COUNTER_TABLE;
 import static info.archinnov.achilles.counter.AchillesCounter.CQL_COUNTER_VALUE;
 import static info.archinnov.achilles.internal.cql.TypeMapper.toCQLType;
 import java.util.Collection;
-import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.datastax.driver.core.ColumnMetadata;
@@ -33,7 +33,6 @@ import com.datastax.driver.core.KeyspaceMetadata;
 import com.datastax.driver.core.TableMetadata;
 import info.archinnov.achilles.internal.context.ConfigurationContext;
 import info.archinnov.achilles.internal.metadata.holder.EntityMeta;
-import info.archinnov.achilles.internal.metadata.holder.InternalTimeUUID;
 import info.archinnov.achilles.internal.metadata.holder.PropertyMeta;
 import info.archinnov.achilles.internal.validation.Validator;
 import info.archinnov.achilles.type.Counter;
@@ -146,32 +145,6 @@ public class TableValidator {
                 realType, Name.COUNTER);
     }
 
-    private void validatePartitionComponent(TableMetadata tableMetaData, String columnName, Class<?> columnJavaType) {
-
-        final String tableName = tableMetaData.getName();
-        log.debug("Validate existing partition key component {} from table {} against type {}", columnName,tableName, columnJavaType);
-
-        // no ALTER's for partition components
-        ColumnMetadata columnMetadata = tableMetaData.getColumn(columnName);
-        validateColumnType(tableName, columnName, columnMetadata, columnJavaType);
-
-        Validator.validateBeanMappingTrue(hasColumnMeta(tableMetaData.getPartitionKey(), columnMetadata),
-                "Column '%s' of table '%s' should be a partition key component", columnName, tableName);
-    }
-
-
-    private void validateClusteringComponent(TableMetadata tableMetaData, String columnName, Class<?> columnJavaType) {
-
-        final String tableName = tableMetaData.getName();
-        log.debug("Validate existing clustering column {} from table {} against type {}", columnName,tableName, columnJavaType);
-
-        // no ALTER's for clustering components
-        ColumnMetadata columnMetadata = tableMetaData.getColumn(columnName);
-        validateColumnType(tableName, columnName, columnMetadata, columnJavaType);
-        Validator.validateBeanMappingTrue(hasColumnMeta(tableMetaData.getClusteringColumns(), columnMetadata),
-                "Column '%s' of table '%s' should be a clustering key component", columnName, tableName);
-    }
-
     private void validateCollectionAndMapColumn(TableMetadata tableMetadata, PropertyMeta pm, boolean schemaUpdateEnabled) {
 
         log.debug("Validate existing collection/map column {} from table {}");
@@ -187,7 +160,7 @@ public class TableValidator {
             Validator.validateTableTrue(columnMetadata != null, "Cannot find column '%s' in the table '%s'", columnName, tableName);
         }
         Name realType = columnMetadata.getType().getName();
-        Name expectedValueType = toCQLType(pm.getValueClassForTableCreation());
+        Name expectedValueType = toCQLType(pm.getValueClassForTableCreationAndValidation());
 
         switch (pm.type()) {
             case LIST:
@@ -232,32 +205,8 @@ public class TableValidator {
     }
 
     private void validatePrimaryKeyComponents(TableMetadata tableMetadata, PropertyMeta idMeta, boolean partitionKey) {
-
-        log.debug("Validate existing primary key component from table {} against Achilles meta data {}",
-                tableMetadata.getName(), idMeta);
-
-        List<String> componentNames;
-        List<Class<?>> componentClasses;
-        if (partitionKey) {
-            componentNames = idMeta.getPartitionComponentNames();
-            componentClasses = idMeta.getPartitionComponentClasses();
-        } else {
-            componentNames = idMeta.getClusteringComponentNames();
-            componentClasses = idMeta.getClusteringComponentClasses();
-        }
-
-        for (int i = 0; i < componentNames.size(); i++) {
-            Class<?> componentClass = componentClasses.get(i);
-            String componentName = componentNames.get(i);
-            if (idMeta.isPrimaryKeyTimeUUID(componentName)) {
-                componentClass = InternalTimeUUID.class;
-            }
-            if (partitionKey) {
-                validatePartitionComponent(tableMetadata, componentName.toLowerCase(), componentClass);
-            } else {
-                validateClusteringComponent(tableMetadata, componentName.toLowerCase(), componentClass);
-            }
-        }
+        log.debug("Validate existing primary key component from table {} against Achilles meta data {}",tableMetadata.getName(), idMeta);
+        idMeta.validatePrimaryKeyComponents(tableMetadata, partitionKey);
     }
 
     private boolean hasColumnMeta(Collection<ColumnMetadata> columnMetadatas, ColumnMetadata fqcnColumn) {
@@ -271,7 +220,7 @@ public class TableValidator {
     private void validateColumn(TableMetadata tableMetaData, EntityMeta entityMeta, PropertyMeta propertyMeta,  ConfigurationContext configContext) {
 
         final String columnName = propertyMeta.getCQL3PropertyName();
-        final Class<?> columnJavaType = propertyMeta.getValueClassForTableCreation();
+        final Class<?> columnJavaType = propertyMeta.getValueClassForTableCreationAndValidation();
         final boolean schemaUpdateEnabled = entityMeta.isSchemaUpdateEnabled();
         String tableName = tableMetaData.getName();
 

@@ -125,19 +125,4 @@ public class ReflectionInvoker {
 		log.trace("Instantiate entity class {}", entityClass);
 		return instantiator.instantiate(entityClass);
 	}
-
-	public Object instantiateEmbeddedIdWithPartitionComponents(PropertyMeta idMeta, List<Object> partitionComponents) {
-		log.trace("Instantiate entity class {} with partition key components {}", idMeta.getValueClass(),
-				partitionComponents);
-		Class<?> valueClass = idMeta.getValueClass();
-		Object newInstance = instantiate(valueClass);
-		List<Field> fields = idMeta.getPartitionComponentFields();
-
-		for (int i = 0; i < partitionComponents.size(); i++) {
-			Field field = fields.get(i);
-			Object component = partitionComponents.get(i);
-			setValueToField(newInstance, field, component);
-		}
-		return newInstance;
-	}
 }

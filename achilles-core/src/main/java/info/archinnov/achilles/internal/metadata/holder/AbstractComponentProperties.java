@@ -70,13 +70,6 @@ public abstract class AbstractComponentProperties {
         }
     };
 
-    private static final Predicate<PropertyMeta> FILTER_TIMEUUID = new Predicate<PropertyMeta>() {
-        @Override
-        public boolean apply(PropertyMeta meta) {
-            return meta.isTimeUUID();
-        }
-    };
-
     protected final List<PropertyMeta> propertyMetas;
 
 	protected AbstractComponentProperties(List<PropertyMeta> propertyMetas) {
@@ -106,10 +99,6 @@ public abstract class AbstractComponentProperties {
     public List<Method> getComponentSetters() {
 		return from(propertyMetas).transform(GET_SETTER).toList();
 	}
-
-    public List<String> getTimeUUIDComponents() {
-        return from(propertyMetas).filter(FILTER_TIMEUUID).transform(GET_NAME).toList();
-    }
 
     @Override
 	public String toString() {

@@ -133,29 +133,27 @@ public class EntityMeta {
     }
 
     public List<String> getPartitionKeysName(int size) {
-        return idMeta.getPartitionComponentNames().subList(0,size);
+        return idMeta.getPartitionKeysName(size);
     }
 
     public String getLastPartitionKeyName() {
-        final List<String> partitionComponentNames = idMeta.getPartitionComponentNames();
-        return partitionComponentNames.get(partitionComponentNames.size()-1);
+        return idMeta.getLastPartitionKeyName();
     }
 
     public List<String> getClusteringKeysName(int size) {
-        return idMeta.getClusteringComponentNames().subList(0,size);
+        return idMeta.getClusteringKeysName(size);
     }
 
     public String getLastClusteringKeyName() {
-        final List<String> clusteringComponentNames = idMeta.getClusteringComponentNames();
-        return clusteringComponentNames.get(clusteringComponentNames.size()-1);
+        return idMeta.getLastClusteringKeyName();
     }
 
     public int getPartitionKeysSize() {
-        return idMeta.getPartitionComponentClasses().size();
+        return idMeta.getPartitionKeysSize();
     }
 
     public int getClusteringKeysSize() {
-        return idMeta.getClusteringComponentClasses().size();
+        return idMeta.getClusteringKeysSize();
     }
 
     public List<Create.Options.ClusteringOrder> getClusteringOrders() {

@@ -93,7 +93,7 @@ public class PersistenceContextFactory {
 				entityClass, partitionComponents, cl);
 		EntityMeta meta = entityMetaMap.get(entityClass);
 		PropertyMeta idMeta = meta.getIdMeta();
-		Object embeddedId = invoker.instantiateEmbeddedIdWithPartitionComponents(idMeta, partitionComponents);
+		Object embeddedId = idMeta.instantiateEmbeddedIdWithPartitionComponents(partitionComponents);
 
 		ImmediateFlushContext flushContext = buildImmediateFlushContext(OptionsBuilder.withConsistency(cl));
 

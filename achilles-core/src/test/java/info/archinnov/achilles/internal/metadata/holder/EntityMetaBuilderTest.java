@@ -133,7 +133,7 @@ public class EntityMetaBuilderTest {
         when(idMeta.type()).thenReturn(EMBEDDED_ID);
         when(idMeta.<Long>getValueClass()).thenReturn(Long.class);
         when(idMeta.isEmbeddedId()).thenReturn(true);
-        when(idMeta.getClusteringComponentClasses()).thenReturn(Arrays.<Class<?>>asList(String.class));
+        //when(idMeta.getClusteringComponentClasses()).thenReturn(Arrays.<Class<?>>asList(String.class));
         List<PropertyMeta> eagerMetas = new ArrayList<>();
         eagerMetas.add(counterMeta);
 

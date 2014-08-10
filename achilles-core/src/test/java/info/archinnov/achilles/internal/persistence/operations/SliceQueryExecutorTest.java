@@ -146,7 +146,6 @@ public class SliceQueryExecutorTest {
         when(contextFactory.newContextForSliceQuery(ClusteredEntity.class, partitionComponents, LOCAL_QUORUM))
                 .thenReturn(context);
 
-        when(idMeta.getCQL3ComponentNames()).thenReturn(asList("id", "comp1"));
         Iterator<ClusteredEntity> iter = executor.iterator(sliceQueryProperties);
 
         assertThat(iter).isNotNull();

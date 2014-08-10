@@ -38,7 +38,6 @@ import com.datastax.driver.core.TableMetadata;
 import info.archinnov.achilles.exception.AchillesInvalidTableException;
 import info.archinnov.achilles.internal.context.ConfigurationContext;
 import info.archinnov.achilles.internal.metadata.holder.EntityMeta;
-import info.archinnov.achilles.internal.metadata.holder.InternalTimeUUID;
 import info.archinnov.achilles.internal.metadata.holder.PropertyMeta;
 import info.archinnov.achilles.internal.validation.Validator;
 import info.archinnov.achilles.schemabuilder.Create;
@@ -113,7 +112,7 @@ public class TableCreator {
         for (PropertyMeta pm : entityMeta.getAllMetasExceptIdAndCounters()) {
             String propertyName = pm.getCQL3PropertyName();
             Class<?> keyClass = pm.getKeyClass();
-            Class<?> valueClass = pm.getValueClassForTableCreation();
+            Class<?> valueClass = pm.getValueClassForTableCreationAndValidation();
             final boolean staticColumn = pm.isStaticColumn();
             switch (pm.type()) {
                 case SIMPLE:
@@ -188,33 +187,12 @@ public class TableCreator {
         List<ClusteringOrder> clusteringOrders = new LinkedList<>();
 
         if (pm.isEmbeddedId()) {
-            addPartitionKeys(pm, createTable);
-            addClusteringKeys(pm, createTable);
+            pm.addPartitionKeys(createTable);
+            pm.addClusteringKeys(createTable);
         } else {
-            String columnName = pm.getPropertyName();
-            createTable.addPartitionKey(columnName, toCQLDataType(pm.getValueClassForTableCreation()));
+            String cql3PropertyName = pm.getCQL3PropertyName();
+            createTable.addPartitionKey(cql3PropertyName, toCQLDataType(pm.getValueClassForTableCreationAndValidation()));
         }
         return clusteringOrders;
-    }
-
-    private void addPartitionKeys(PropertyMeta pm, Create createTable) {
-        List<String> componentNames = pm.getPartitionComponentNames();
-        List<Class<?>> componentClasses = pm.getPartitionComponentClasses();
-        for (int i = 0; i < componentNames.size(); i++) {
-            String componentName = componentNames.get(i);
-            Class<?> javaType = pm.isPrimaryKeyTimeUUID(componentName) ? InternalTimeUUID.class : componentClasses.get(i);
-            createTable.addPartitionKey(componentName, toCQLDataType(javaType));
-        }
-    }
-
-    private void addClusteringKeys(PropertyMeta pm, Create createTable) {
-        List<String> componentNames = pm.getClusteringComponentNames();
-        List<Class<?>> componentClasses = pm.getClusteringComponentClasses();
-        for (int i = 0; i < componentNames.size(); i++) {
-            String componentName = componentNames.get(i);
-            Class<?> javaType = pm.isPrimaryKeyTimeUUID(componentName) ? InternalTimeUUID.class : componentClasses.get(i);
-            createTable.addClusteringKey(componentName, toCQLDataType(javaType));
-
-        }
     }
 }

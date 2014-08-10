@@ -32,23 +32,12 @@ public class TypedQueryValidator {
     public void validateTypedQuery(Class<?> entityClass, RegularStatement regularStatement, EntityMeta meta) {
         log.debug("Validate typed query {}",regularStatement.getQueryString());
 		PropertyMeta idMeta = meta.getIdMeta();
-		String queryString = regularStatement.getQueryString().toLowerCase();
+		String queryString = regularStatement.getQueryString().toLowerCase().trim();
 
 		validateRawTypedQuery(entityClass, regularStatement, meta);
 
 		if (!queryString.contains("select *")) {
-			if (idMeta.isEmbeddedId()) {
-
-				for (String component : idMeta.getCQL3ComponentNames()) {
-					Validator.validateTrue(queryString.contains(component),
-							"The typed query [%s] should contain the component column '%s' for embedded id type '%s'",
-							queryString, component, idMeta.getValueClass().getCanonicalName());
-				}
-			} else {
-				String idColumn = idMeta.getPropertyName();
-				Validator.validateTrue(queryString.contains(idColumn.toLowerCase()),
-						"The typed query [%s] should contain the id column '%s'", queryString, idColumn);
-			}
+			idMeta.validateTypedQuery(queryString);
 		}
 	}
 

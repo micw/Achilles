@@ -15,16 +15,11 @@ import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.datastax.driver.core.ColumnMetadata;
-import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.TableMetadata;
 import com.google.common.base.Function;
-import com.google.common.base.Predicate;
-import com.google.common.collect.FluentIterable;
-import info.archinnov.achilles.internal.cql.TypeMapper;
 import info.archinnov.achilles.internal.metadata.holder.EntityMeta;
 import info.archinnov.achilles.internal.metadata.holder.PropertyMeta;
-import info.archinnov.achilles.schemabuilder.Alter;
 import info.archinnov.achilles.schemabuilder.SchemaBuilder;
 
 public class TableUpdater {
@@ -59,7 +54,7 @@ public class TableUpdater {
             if (!columnNames.contains(propertyMeta.getPropertyName())) {
                 String propertyName = propertyMeta.getCQL3PropertyName();
                 Class<?> keyClass = propertyMeta.getKeyClass();
-                Class<?> valueClass = propertyMeta.getValueClassForTableCreation();
+                Class<?> valueClass = propertyMeta.getValueClassForTableCreationAndValidation();
                 final boolean staticColumn = propertyMeta.isStaticColumn();
                 String alterTableScript = "";
                 switch (propertyMeta.type()) {

@@ -157,18 +157,6 @@ public class PropertyMetaTest {
 	}
 
 	@Test
-	public void should_get_ordering_component() throws Exception {
-		PropertyMeta meta = new PropertyMeta();
-
-        final PartitionComponents partitionComponents = mock(PartitionComponents.class);
-        final ClusteringComponents clusteringComponents = mock(ClusteringComponents.class);
-     	EmbeddedIdProperties props = EmbeddedIdPropertiesBuilder.buildEmbeddedIdProperties(partitionComponents, clusteringComponents, "entity");
-		meta.setEmbeddedIdProperties(props);
-
-		assertThat(meta.getOrderingComponent()).isEqualTo("age");
-	}
-
-	@Test
 	public void should_get_clustering_order() throws Exception {
 		PropertyMeta meta = new PropertyMeta();
 
@@ -181,13 +169,6 @@ public class PropertyMetaTest {
         assertThat(meta.getClusteringOrders()).containsExactly(clusteringOrder);
     }
 
-	@Test
-	public void should_return_null_for_cql_ordering_component_if_no_multikey() throws Exception {
-		PropertyMeta meta = new PropertyMeta();
-
-		assertThat(meta.getOrderingComponent()).isNull();
-
-	}
 
 	@Test
 	public void should_return_true_for_is_embedded_id() throws Exception {
@@ -387,49 +368,6 @@ public class PropertyMetaTest {
 		pm.setValueToField(entity, "name");
 
 		verify(invoker).setValueToField(entity, pm.getField(), "name");
-	}
-
-	@Test
-	public void should_get_clustering_component_names() throws Exception {
-		PropertyMeta pm = PropertyMetaTestBuilder.valueClass(String.class).build();
-
-		assertThat(pm.getClusteringComponentNames()).containsExactly("comp1", "comp2");
-	}
-
-	@Test
-	public void should_get_empty_clustering_component_names() throws Exception {
-		PropertyMeta pm = PropertyMetaTestBuilder.valueClass(String.class).build();
-
-		assertThat(pm.getClusteringComponentNames()).isEmpty();
-	}
-
-	@Test
-	public void should_get_clustering_component_classes() throws Exception {
-		PropertyMeta pm = PropertyMetaTestBuilder.valueClass(String.class).build();
-
-		assertThat(pm.getClusteringComponentClasses()).containsExactly(UUID.class, String.class);
-	}
-
-	@Test
-	public void should_get_empty_clustering_component_classes() throws Exception {
-		PropertyMeta pm = PropertyMetaTestBuilder.valueClass(String.class).build();
-
-		assertThat(pm.getClusteringComponentClasses()).isEmpty();
-	}
-
-	@Test
-	public void should_return_true_for_is_component_time_uuid() throws Exception {
-		PropertyMeta pm = PropertyMetaTestBuilder.valueClass(String.class).build();
-
-		assertThat(pm.isPrimaryKeyTimeUUID("comp1")).isTrue();
-		assertThat(pm.isPrimaryKeyTimeUUID("comp2")).isFalse();
-	}
-
-	@Test
-	public void should_return_false_for_is_component_time_uuid_if_not_embedded_id() throws Exception {
-		PropertyMeta pm = PropertyMetaTestBuilder.valueClass(String.class).build();
-
-		assertThat(pm.isPrimaryKeyTimeUUID("comp1")).isFalse();
 	}
 
     @Test

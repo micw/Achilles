@@ -18,24 +18,30 @@ package info.archinnov.achilles.internal.metadata.holder;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.bindMarker;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
 import static info.archinnov.achilles.internal.cql.TypeMapper.getRowMethod;
+import static info.archinnov.achilles.internal.cql.TypeMapper.toCQLDataType;
+import static info.archinnov.achilles.internal.cql.TypeMapper.toCQLType;
 import static info.archinnov.achilles.schemabuilder.Create.Options.ClusteringOrder;
 import static java.lang.String.format;
 
-import com.datastax.driver.core.ColumnDefinitions;
-import com.datastax.driver.core.Row;
+import com.datastax.driver.core.*;
 import com.datastax.driver.core.querybuilder.Delete;
 import com.datastax.driver.core.querybuilder.Insert;
 import com.datastax.driver.core.querybuilder.Select;
 import com.datastax.driver.core.querybuilder.Update;
 import com.google.common.base.Optional;
+import com.google.common.collect.Iterables;
 import info.archinnov.achilles.exception.AchillesException;
+import info.archinnov.achilles.internal.reflection.ReflectionInvoker;
+import info.archinnov.achilles.internal.table.ColumnMetaDataComparator;
 import info.archinnov.achilles.internal.validation.Validator;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
+import info.archinnov.achilles.schemabuilder.Create;
 import info.archinnov.achilles.type.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,7 +55,10 @@ public class EmbeddedIdProperties extends AbstractComponentProperties {
     private final PartitionComponents partitionComponents;
 	private final ClusteringComponents clusteringComponents;
     private final String entityClassName;
-	public EmbeddedIdProperties(PartitionComponents partitionComponents, ClusteringComponents clusteringComponents, List<PropertyMeta> keyMetas, String entityClassName) {
+    private ColumnMetaDataComparator columnMetaDataComparator = new ColumnMetaDataComparator();
+    private ReflectionInvoker invoker = new ReflectionInvoker();
+
+    public EmbeddedIdProperties(PartitionComponents partitionComponents, ClusteringComponents clusteringComponents, List<PropertyMeta> keyMetas, String entityClassName) {
 		super(keyMetas);
 		this.partitionComponents = partitionComponents;
 		this.clusteringComponents = clusteringComponents;
@@ -299,5 +308,120 @@ public class EmbeddedIdProperties extends AbstractComponentProperties {
             boundValues[i] = componentValue;
         }
         return Pair.create(where, boundValues);
+    }
+
+    //Table validation
+    void validatePrimaryKeyComponents(TableMetadata tableMetadata, boolean partitionKey) {
+        log.debug("Validate existing primary key component from table {} against entity class {}",tableMetadata.getName(), entityClassName);
+
+        if (partitionKey) {
+            for (PropertyMeta partitionMeta : partitionComponents.propertyMetas) {
+                validatePartitionComponent(tableMetadata, partitionMeta);
+            }
+        } else {
+            for (PropertyMeta partitionMeta : clusteringComponents.propertyMetas) {
+                validateClusteringComponent(tableMetadata, partitionMeta);
+            }
+        }
+    }
+
+    private void validatePartitionComponent(TableMetadata tableMetaData, PropertyMeta partitionMeta) {
+        final String tableName = tableMetaData.getName();
+        final String cql3PropertyName = partitionMeta.getCQL3PropertyName();
+        final Class<?> columnJavaType = partitionMeta.getValueClassForTableCreationAndValidation();
+        log.debug("Validate existing partition key component {} from table {} against type {}", cql3PropertyName, tableName, columnJavaType.getCanonicalName());
+
+        // no ALTER's for partition components
+        ColumnMetadata columnMetadata = tableMetaData.getColumn(cql3PropertyName);
+        validateColumnType(tableName, cql3PropertyName, columnMetadata, columnJavaType);
+
+        Validator.validateBeanMappingTrue(hasColumnMeta(tableMetaData.getPartitionKey(), columnMetadata),
+                "Column '%s' of table '%s' should be a partition key component", cql3PropertyName, tableName);
+    }
+
+
+    private void validateClusteringComponent(TableMetadata tableMetaData, PropertyMeta clusteringMeta) {
+        final String tableName = tableMetaData.getName();
+        final String cql3PropertyName = clusteringMeta.getCQL3PropertyName();
+        final Class<?> columnJavaType = clusteringMeta.getValueClassForTableCreationAndValidation();
+        log.debug("Validate existing clustering column {} from table {} against type {}", cql3PropertyName,tableName, columnJavaType);
+
+        // no ALTER's for clustering components
+        ColumnMetadata columnMetadata = tableMetaData.getColumn(cql3PropertyName);
+        validateColumnType(tableName, cql3PropertyName, columnMetadata, columnJavaType);
+        Validator.validateBeanMappingTrue(hasColumnMeta(tableMetaData.getClusteringColumns(), columnMetadata),
+                "Column '%s' of table '%s' should be a clustering key component", cql3PropertyName, tableName);
+    }
+
+    private void validateColumnType(String tableName, String columnName, ColumnMetadata columnMetadata, Class<?> columnJavaType) {
+        DataType.Name expectedType = toCQLType(columnJavaType);
+        DataType.Name realType = columnMetadata.getType().getName();
+		/*
+         * See JIRA
+		 */
+        if (realType == DataType.Name.CUSTOM) {
+            realType = DataType.Name.BLOB;
+        }
+        Validator.validateTableTrue(expectedType == realType, "Column '%s' of table '%s' of type '%s' should be of type '%s' indeed", columnName, tableName, realType, expectedType);
+    }
+
+    private boolean hasColumnMeta(Collection<ColumnMetadata> columnMetadatas, ColumnMetadata fqcnColumn) {
+        boolean fqcnColumnMatches = false;
+        for (ColumnMetadata columnMetadata : columnMetadatas) {
+            fqcnColumnMatches = fqcnColumnMatches || columnMetaDataComparator.isEqual(fqcnColumn, columnMetadata);
+        }
+        return fqcnColumnMatches;
+    }
+
+    //Table creation
+    void addPartitionKeys(Create createTable) {
+        for (PropertyMeta partitionMeta: partitionComponents.propertyMetas) {
+            String cql3PropertyName = partitionMeta.getCQL3PropertyName();
+            Class<?> javaType = partitionMeta.getValueClassForTableCreationAndValidation();
+            createTable.addPartitionKey(cql3PropertyName, toCQLDataType(javaType));
+        }
+    }
+
+    void addClusteringKeys(Create createTable) {
+        for (PropertyMeta clusteringMeta: clusteringComponents.propertyMetas) {
+            String cql3PropertyName = clusteringMeta.getCQL3PropertyName();
+            Class<?> javaType = clusteringMeta.getValueClassForTableCreationAndValidation();
+            createTable.addClusteringKey(cql3PropertyName, toCQLDataType(javaType));
+        }
+    }
+
+    //Slice query
+    String getLastPartitionKeyName() {
+        return Iterables.getLast(partitionComponents.getCQL3ComponentNames());
+    }
+
+    String getLastClusteringKeyName() {
+        return Iterables.getLast(clusteringComponents.getCQL3ComponentNames());
+    }
+
+    int getPartitionKeysSize() {
+        return partitionComponents.propertyMetas.size();
+    }
+
+    int getClusteringKeysSize() {
+        return clusteringComponents.propertyMetas.size();
+    }
+
+    // Typed query
+    public void validateTypedQuery(String queryString, Class<?> valueClass) {
+        for (String component : getCQL3ComponentNames()) {
+            Validator.validateTrue(queryString.contains(component),
+                    "The typed query [%s] should contain the component column '%s' for embedded id type '%s'",
+                    queryString, component, valueClass.getCanonicalName());
+        }
+    }
+
+    public void copyPartitionComponentsToObject(Object newPrimaryKey, List<Object> partitionComponents) {
+        List<Field> fields = getPartitionComponentFields();
+        for (int i = 0; i < partitionComponents.size(); i++) {
+            Field field = fields.get(i);
+            Object component = partitionComponents.get(i);
+            invoker.setValueToField(newPrimaryKey, field, component);
+        }
     }
 }

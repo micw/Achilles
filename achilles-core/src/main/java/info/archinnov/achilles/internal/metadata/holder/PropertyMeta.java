@@ -17,6 +17,7 @@ package info.archinnov.achilles.internal.metadata.holder;
 
 import static com.datastax.driver.core.querybuilder.QueryBuilder.bindMarker;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
+import static info.archinnov.achilles.internal.cql.TypeMapper.toCQLDataType;
 import static info.archinnov.achilles.schemabuilder.Create.Options.ClusteringOrder;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -31,6 +32,7 @@ import java.util.Set;
 
 import com.datastax.driver.core.RegularStatement;
 import com.datastax.driver.core.Row;
+import com.datastax.driver.core.TableMetadata;
 import com.datastax.driver.core.querybuilder.Delete;
 import com.datastax.driver.core.querybuilder.Insert;
 import com.datastax.driver.core.querybuilder.Select;
@@ -41,6 +43,7 @@ import com.google.common.collect.Sets;
 import info.archinnov.achilles.internal.metadata.transcoding.codec.*;
 import info.archinnov.achilles.internal.validation.Validator;
 import info.archinnov.achilles.json.DefaultJacksonMapper;
+import info.archinnov.achilles.schemabuilder.Create;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,19 +73,6 @@ public class PropertyMeta {
         @Override
         public boolean apply(PropertyMeta pm) {
             return pm.isCounter();
-        }
-    };
-
-
-    private static final Function<String, String> TO_LOWER_CASE = new Function<String, String>() {
-
-        @Override
-        public String apply(String input) {
-            String result = null;
-            if (StringUtils.isNotBlank(input))
-                result = input.toLowerCase();
-
-            return result;
         }
     };
 
@@ -180,93 +170,96 @@ public class PropertyMeta {
         }
     }
 
-    //Validation
-
-    public List<String> getCQL3ComponentNames() {
-        log.trace("Get CQL3 primary component names");
-        Validator.validateNotNull(embeddedIdProperties, "Cannot retrieve CQL3 primary key component names because entity '%s' does not have a compound primary key",entityClassName);
-        return embeddedIdProperties.getCQL3ComponentNames();
+    //Table Validation
+    public void validatePrimaryKeyComponents(TableMetadata tableMetadata, boolean partitionKey) {
+        Validator.validateNotNull(embeddedIdProperties, "Cannot validate compound primary keys components against Cassandra meta data because entity '%s' does not have a compound primary key",entityClassName);
+        embeddedIdProperties.validatePrimaryKeyComponents(tableMetadata, partitionKey);
     }
 
-    public List<String> getClusteringComponentNames() {
-        log.trace("Get clustering component names");
-        return embeddedIdProperties != null ? embeddedIdProperties.getClusteringComponentNames() : Arrays
-                .<String>asList();
+    //Table creation
+    public void addPartitionKeys(Create createTable) {
+        Validator.validateNotNull(embeddedIdProperties, "Cannot create partition components for entity '%s' because it does not have a compound primary key",entityClassName);
+        embeddedIdProperties.addPartitionKeys(createTable);
     }
 
-    public List<Class<?>> getClusteringComponentClasses() {
-        log.trace("Get clustering component classes");
-        return embeddedIdProperties != null ? embeddedIdProperties.getClusteringComponentClasses() : Arrays
-                .<Class<?>>asList();
+    public void addClusteringKeys(Create createTable) {
+        Validator.validateNotNull(embeddedIdProperties, "Cannot create clustering keys for entity '%s' because it does not have a compound primary key",entityClassName);
+        embeddedIdProperties.addClusteringKeys(createTable);
     }
 
-    public List<String> getPartitionComponentNames() {
-        log.trace("Get partition key component names");
-        return embeddedIdProperties != null ? embeddedIdProperties.getPartitionComponentNames() : Arrays
-                .<String>asList();
+    //Slice query
+    List<String> getPartitionKeysName(int size) {
+        Validator.validateNotNull(embeddedIdProperties, "Cannot get {} partition key names for entity '%s' because it does not have a compound primary key",size, entityClassName);
+        return embeddedIdProperties.getPartitionComponentNames().subList(0,size);
     }
 
-    public List<Class<?>> getPartitionComponentClasses() {
-        log.trace("Get partition key component classes");
-        return embeddedIdProperties != null ? embeddedIdProperties.getPartitionComponentClasses() : Arrays
-                .<Class<?>>asList(valueClass);
+    String getLastPartitionKeyName() {
+        Validator.validateNotNull(embeddedIdProperties, "Cannot get last partition key name for entity '%s' because it does not have a compound primary key", entityClassName);
+        return embeddedIdProperties.getLastPartitionKeyName();
     }
 
-    public void validatePartitionComponents(Object...partitionComponents) {
-        log.trace("Validate partition key components");
-        if (embeddedIdProperties != null) {
-            embeddedIdProperties.validatePartitionComponents(this.entityClassName, partitionComponents);
+    List<String> getClusteringKeysName(int size) {
+        Validator.validateNotNull(embeddedIdProperties, "Cannot get {} clustering key names for entity '%s' because it does not have a compound primary key",size, entityClassName);
+        return embeddedIdProperties.getClusteringComponentNames().subList(0,size);
+    }
+
+    String getLastClusteringKeyName() {
+        Validator.validateNotNull(embeddedIdProperties, "Cannot get last clustering key name for entity '%s' because it does not have a compound primary key",entityClassName);
+        return embeddedIdProperties.getLastClusteringKeyName();
+    }
+
+    int getPartitionKeysSize() {
+        return embeddedIdProperties.getPartitionKeysSize();
+    }
+
+    int getClusteringKeysSize() {
+        return embeddedIdProperties.getClusteringKeysSize();
+    }
+
+    void validatePartitionComponents(Object...partitionComponents) {
+        log.trace("Validate partition key components {} for entity {}",partitionComponents, entityClassName);
+        Validator.validateNotNull(embeddedIdProperties, "Cannot validate partition components for entity '%s' because it does not have a compound primary key",entityClassName);
+        embeddedIdProperties.validatePartitionComponents(this.entityClassName, partitionComponents);
+    }
+
+    void validatePartitionComponentsIn(Object...partitionComponentsIN) {
+        log.trace("Validate partition key components IN {} for entity {}", partitionComponentsIN, entityClassName);
+        Validator.validateNotNull(embeddedIdProperties, "Cannot validate partition components IN for entity '%s' because it does not have a compound primary key",entityClassName);
+        embeddedIdProperties.validatePartitionComponentsIn(this.entityClassName, partitionComponentsIN);
+    }
+
+    void validateClusteringComponents(Object...clusteringKeys) {
+        log.trace("Validate clustering keys {} for entity {}", clusteringKeys, entityClassName);
+        Validator.validateNotNull(embeddedIdProperties, "Cannot validate clustering keys for entity '%s' because it does not have a compound primary key",entityClassName);
+        embeddedIdProperties.validateClusteringComponents(this.entityClassName, clusteringKeys);
+    }
+
+    void validateClusteringComponentsIn(Object...clusteringKeysIN) {
+        log.trace("Validate clustering keys IN {} for entity {}", clusteringKeysIN, entityClassName);
+        Validator.validateNotNull(embeddedIdProperties, "Cannot validate clustering keys IN for entity '%s' because it does not have a compound primary key",entityClassName);
+        embeddedIdProperties.validateClusteringComponentsIn(this.entityClassName, clusteringKeysIN);
+    }
+
+    public Object instantiateEmbeddedIdWithPartitionComponents(List<Object> partitionComponents) {
+        log.trace("Instantiate compound primary class {} with partition key components {}", valueClass.getCanonicalName(), partitionComponents);
+        Object newPrimaryKey = instantiate();
+        embeddedIdProperties.copyPartitionComponentsToObject(newPrimaryKey, partitionComponents);
+        return newPrimaryKey;
+    }
+
+    //Type query
+    public void validateTypedQuery(String queryString) {
+        if (isEmbeddedId()) {
+            embeddedIdProperties.validateTypedQuery(queryString, valueClass);
+        } else {
+            Validator.validateTrue(queryString.contains(getCQL3PropertyName()),"The typed query [%s] should contain the id column '%s'", queryString, getCQL3PropertyName());
         }
-    }
-
-    public void validatePartitionComponentsIn(Object...partitionComponents) {
-        log.trace("Validate partition key components");
-        if (embeddedIdProperties != null) {
-            embeddedIdProperties.validatePartitionComponentsIn(this.entityClassName, partitionComponents);
-        }
-    }
-
-    public void validateClusteringComponents(Object...clusteringComponents) {
-        log.trace("Validate clustering components");
-        if (embeddedIdProperties != null) {
-            embeddedIdProperties.validateClusteringComponents(this.entityClassName, clusteringComponents);
-        }
-    }
-
-    public void validateClusteringComponentsIn(Object...clusteringComponents) {
-        log.trace("Validate clustering components");
-        if (embeddedIdProperties != null) {
-            embeddedIdProperties.validateClusteringComponentsIn(this.entityClassName, clusteringComponents);
-        }
-    }
-
-    public List<Field> getPartitionComponentFields() {
-        log.trace("Get partition key component fields");
-        return embeddedIdProperties != null ? embeddedIdProperties.getPartitionComponentFields() : Arrays
-                .<Field>asList();
-    }
-
-    public boolean isPrimaryKeyTimeUUID(String componentName) {
-        log.trace("Determine whether component {} is of TimeUUID type", componentName);
-        return embeddedIdProperties != null && embeddedIdProperties.getTimeUUIDComponents().contains(componentName);
-    }
-
-    public String getOrderingComponent() {
-        log.trace("Get ordering component name");
-        String component = null;
-        if (embeddedIdProperties != null) {
-            return embeddedIdProperties.getOrderingComponent();
-        }
-        return component;
     }
 
     public List<ClusteringOrder> getClusteringOrders() {
         log.trace("Get clustering orders if any");
-        List<ClusteringOrder> clusteringOrders = new LinkedList<>();
-        if (embeddedIdProperties != null) {
-            return embeddedIdProperties.getCluseringOrders();
-        }
-        return clusteringOrders;
+        Validator.validateNotNull(embeddedIdProperties, "Cannot get clustering orders for entity '%s' because it does not have a compound primary key",entityClassName);
+        return embeddedIdProperties.getCluseringOrders();
     }
 
 
@@ -288,8 +281,8 @@ public class PropertyMeta {
     }
 
     public boolean isClustered() {
-        if (embeddedIdProperties != null) {
-            return  !embeddedIdProperties.getClusteringComponentClasses().isEmpty();
+        if (isEmbeddedId()) {
+            return embeddedIdProperties.isClustered();
         }
         return false;
     }
@@ -464,7 +457,7 @@ public class PropertyMeta {
         invoker.setValueToField(target, field, args);
     }
 
-    public Class<?> getValueClassForTableCreation() {
+    public Class<?> getValueClassForTableCreationAndValidation() {
         if (timeUUID) {
             return InternalTimeUUID.class;
         } else {

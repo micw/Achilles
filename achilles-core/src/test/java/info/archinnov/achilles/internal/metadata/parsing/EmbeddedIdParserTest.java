@@ -132,14 +132,6 @@ public class EmbeddedIdParserTest {
     }
 
     @Test
-    public void should_parse_embedded_id_with_time_uuid() throws Exception {
-        EmbeddedIdProperties props = parser.parseEmbeddedId(EmbeddedKeyWithTimeUUID.class, propertyParser);
-
-        assertThat(props.getTimeUUIDComponents()).containsExactly("date");
-        assertThat(props.getComponentNames()).containsExactly("date", "ranking");
-    }
-
-    @Test
     public void should_exception_when_embedded_id_incorrect_type() throws Exception {
         exception.expect(AchillesBeanMappingException.class);
         exception.expectMessage("The class 'java.util.List' is not a valid component type for the @EmbeddedId class '"
