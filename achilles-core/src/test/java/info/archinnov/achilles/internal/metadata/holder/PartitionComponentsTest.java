@@ -17,10 +17,14 @@
 package info.archinnov.achilles.internal.metadata.holder;
 
 import java.util.Arrays;
+
+import info.archinnov.achilles.schemabuilder.Create;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
 import info.archinnov.achilles.exception.AchillesException;
 import info.archinnov.achilles.internal.metadata.holder.PartitionComponents;
@@ -31,21 +35,30 @@ public class PartitionComponentsTest {
 	@Rule
 	public ExpectedException exception = ExpectedException.none();
 
+    @Mock
+    private PropertyMeta meta1;
+    @Mock
+    private PropertyMeta meta2;
+    @Mock
+    private PropertyMeta meta3;
+    @Mock
+    private PropertyMeta meta4;
+
 	private PartitionComponents partitionComponents;
+
+    @Before
+    public void setUp() {
+        partitionComponents = new PartitionComponents(Arrays.asList(meta1, meta2));
+    }
+
 
 	@Test
 	public void should_validate_partition_components() throws Exception {
-		partitionComponents = new PartitionComponents(Arrays.<Class<?>> asList(Long.class, String.class), null, null,
-				null,null);
-
 		partitionComponents.validatePartitionComponents("classname", 11L, "type");
 	}
 
 	@Test
 	public void should_exception_when_no_partition_component_provided() throws Exception {
-		partitionComponents = new PartitionComponents(Arrays.<Class<?>> asList(Long.class, String.class), null, null,
-                                                      null,null);
-
 		exception.expect(AchillesException.class);
 		exception.expectMessage("There should be at least one partition key component provided for querying on entity 'entityClass'");
 
@@ -54,9 +67,6 @@ public class PartitionComponentsTest {
 
 	@Test
 	public void should_exception_when_empty_list_of_partition_component_provided() throws Exception {
-		partitionComponents = new PartitionComponents(Arrays.<Class<?>> asList(Long.class, String.class), null, null,
-                                                      null,null);
-
 		exception.expect(AchillesException.class);
 		exception.expectMessage("There should be at least one partition key component provided for querying on entity 'entityClass'");
 
@@ -65,9 +75,6 @@ public class PartitionComponentsTest {
 
 	@Test
 	public void should_exception_when_null_partition_component_provided() throws Exception {
-		partitionComponents = new PartitionComponents(Arrays.<Class<?>> asList(Long.class, String.class), null, null,
-                                                      null,null);
-
 		exception.expect(AchillesException.class);
 		exception.expectMessage("The '2th' partition key component should not be null");
 
@@ -76,9 +83,6 @@ public class PartitionComponentsTest {
 
 	@Test
 	public void should_exception_when_partition_component_count_doest_not_match() throws Exception {
-		partitionComponents = new PartitionComponents(Arrays.<Class<?>> asList(Long.class, String.class), null, null,
-                                                      null,null);
-
 		exception.expect(AchillesException.class);
 		exception.expectMessage("The partition key components count should be less or equal to '2' for querying on entity 'entityClass'");
 
@@ -87,9 +91,6 @@ public class PartitionComponentsTest {
 
 	@Test
 	public void should_exception_when_incorrect_type_of_partition_component_provided() throws Exception {
-		partitionComponents = new PartitionComponents(Arrays.<Class<?>> asList(Long.class, Long.class), null, null,
-                                                      null,null);
-
 		exception.expect(AchillesException.class);
 		exception.expectMessage("The type 'java.lang.String' of partition key component 'name' for querying on entity 'entityClass' is not valid. It should be 'java.lang.Long'");
 

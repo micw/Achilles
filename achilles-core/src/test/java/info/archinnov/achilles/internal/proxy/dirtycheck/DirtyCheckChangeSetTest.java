@@ -25,6 +25,8 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import com.google.common.collect.ImmutableMap;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -122,8 +124,7 @@ public class DirtyCheckChangeSetTest {
     public void should_get_encoded_map_changes() throws Exception {
         //Given
         changeSet.mapChanges.put(1, "a");
-        when(pm.encodeKey(1)).thenReturn(1);
-        when(pm.encode("a")).thenReturn("a");
+        when(pm.encode(changeSet.mapChanges)).thenReturn(ImmutableMap.<Object, Object>of(1, "a"));
 
         //When
         Map<Object, Object> actual = changeSet.getEncodedMapChanges();
@@ -311,8 +312,7 @@ public class DirtyCheckChangeSetTest {
     public void should_generate_update_for_added_entries() throws Exception {
         //Given
         changeSet.mapChanges.put(1, "a");
-        when(pm.encodeKey(1)).thenReturn(1);
-        when(pm.encode("a")).thenReturn("a");
+        when(pm.encode(changeSet.mapChanges)).thenReturn(ImmutableMap.<Object, Object>of(1, "a"));
 
         //When
         Object[] vals = changeSet.generateUpdateForAddedEntries(update(), false).right;
@@ -326,8 +326,7 @@ public class DirtyCheckChangeSetTest {
     public void should_generate_update_for_added_entries_with_bind_marker() throws Exception {
         //Given
         changeSet.mapChanges.put(1, "a");
-        when(pm.encodeKey(1)).thenReturn(1);
-        when(pm.encode("a")).thenReturn("a");
+        when(pm.encode(changeSet.mapChanges)).thenReturn(ImmutableMap.<Object, Object>of(1, "a"));
 
         //When
         Object[] vals = changeSet.generateUpdateForAddedEntries(update(), true).right;
@@ -341,7 +340,7 @@ public class DirtyCheckChangeSetTest {
     public void should_generate_update_for_removed_key() throws Exception {
         //Given
         changeSet.mapChanges.put(1, "a");
-        when(pm.encodeKey(1)).thenReturn(1);
+        when(pm.encode(changeSet.mapChanges)).thenReturn(ImmutableMap.<Object, Object>of(1, "a"));
 
         //When
         Object[] vals = changeSet.generateUpdateForRemovedKey(update(), false).right;
@@ -356,7 +355,7 @@ public class DirtyCheckChangeSetTest {
     public void should_generate_update_for_removed_key_with_bind_marker() throws Exception {
         //Given
         changeSet.mapChanges.put(1, "a");
-        when(pm.encodeKey(1)).thenReturn(1);
+        when(pm.encode(changeSet.mapChanges)).thenReturn(ImmutableMap.<Object, Object>of(1, "a"));
 
         //When
         Object[] vals = changeSet.generateUpdateForRemovedKey(update(), true).right;
@@ -446,8 +445,7 @@ public class DirtyCheckChangeSetTest {
     public void should_generate_update_for_assign_map_value() throws Exception {
         //Given
         changeSet.mapChanges.put(1, "a");
-        when(pm.encodeKey(1)).thenReturn(1);
-        when(pm.encode("a")).thenReturn("a");
+        when(pm.encode(changeSet.mapChanges)).thenReturn(ImmutableMap.<Object, Object>of(1, "a"));
 
         //When
         Object[] vals = changeSet.generateUpdateForAssignValueToMap(update(), false).right;

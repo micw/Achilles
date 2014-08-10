@@ -123,8 +123,7 @@ public class TableValidatorTest {
 
     @Test
     public void should_validate_embedded_id_for_entity() throws Exception {
-        PropertyMeta idMeta = valueClass(EmbeddedKey.class).compNames("userId", "name")
-                .compClasses(Long.class, String.class).type(EMBEDDED_ID).build();
+        PropertyMeta idMeta = valueClass(EmbeddedKey.class).type(EMBEDDED_ID).build();
 
         PropertyMeta nameMeta = completeBean(Void.class, String.class).field("name")
                 .type(SIMPLE).build();
@@ -157,8 +156,7 @@ public class TableValidatorTest {
 
     @Test
     public void should_validate_embedded_id_with_time_uuid_for_entity() throws Exception {
-        PropertyMeta idMeta = valueClass(EmbeddedKey.class).compNames("userId", "date")
-                .compClasses(Long.class, UUID.class).type(EMBEDDED_ID).compTimeUUID("date").build();
+        PropertyMeta idMeta = valueClass(EmbeddedKey.class).build();
 
         PropertyMeta nameMeta = completeBean(Void.class, String.class).field("name")
                 .type(SIMPLE).build();

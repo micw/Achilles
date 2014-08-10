@@ -107,7 +107,7 @@ public class CacheManagerTest {
         EntityMeta meta = new EntityMeta();
         meta.setTableName("table");
 
-        PropertyMeta pm = PropertyMetaTestBuilder.valueClass(String.class).field("name").compNames("id", "a", "b")
+        PropertyMeta pm = PropertyMetaTestBuilder.valueClass(String.class).field("name")
                 .type(PropertyType.EMBEDDED_ID).build();
 
         when(context.<CompleteBean>getEntityClass()).thenReturn(CompleteBean.class);

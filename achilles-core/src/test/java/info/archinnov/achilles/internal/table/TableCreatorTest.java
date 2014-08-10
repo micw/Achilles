@@ -31,25 +31,25 @@ import static info.archinnov.achilles.schemabuilder.Create.Options.ClusteringOrd
 import static info.archinnov.achilles.schemabuilder.Create.Options.ClusteringOrder.Sorting;
 import static java.util.Arrays.asList;
 import static org.fest.assertions.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import java.lang.reflect.Field;
+
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import info.archinnov.achilles.internal.metadata.holder.*;
+import info.archinnov.achilles.json.DefaultJacksonMapperFactory;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
-import org.mockito.Answers;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
-import org.mockito.Mock;
+import org.mockito.*;
 import org.mockito.internal.verification.Times;
 import org.mockito.runners.MockitoJUnitRunner;
 import com.datastax.driver.core.Cluster;
@@ -59,13 +59,6 @@ import com.datastax.driver.core.TableMetadata;
 import com.google.common.collect.ImmutableMap;
 import info.archinnov.achilles.exception.AchillesInvalidTableException;
 import info.archinnov.achilles.internal.context.ConfigurationContext;
-import info.archinnov.achilles.internal.metadata.holder.ClusteringComponents;
-import info.archinnov.achilles.internal.metadata.holder.EmbeddedIdProperties;
-import info.archinnov.achilles.internal.metadata.holder.EntityMeta;
-import info.archinnov.achilles.internal.metadata.holder.IndexProperties;
-import info.archinnov.achilles.internal.metadata.holder.PartitionComponents;
-import info.archinnov.achilles.internal.metadata.holder.PropertyMeta;
-import info.archinnov.achilles.internal.metadata.holder.PropertyType;
 import info.archinnov.achilles.test.builders.PropertyMetaTestBuilder;
 import info.archinnov.achilles.test.parser.entity.Bean;
 import info.archinnov.achilles.test.parser.entity.EmbeddedKey;
@@ -96,6 +89,8 @@ public class TableCreatorTest {
 
     @Captor
     private ArgumentCaptor<String> stringCaptor;
+
+    private ObjectMapper defaultJakcsonMapper = new DefaultJacksonMapperFactory().getMapper(String.class);
 
     private String keyspaceName = "achilles";
 
@@ -165,12 +160,10 @@ public class TableCreatorTest {
     public void should_create_complete_table_with_clustering_order() throws Exception {
         PropertyMeta idMeta = new PropertyMeta();
         idMeta.setType(PropertyType.EMBEDDED_ID);
-        PartitionComponents partitionComponents = new PartitionComponents(Arrays.<Class<?>>asList(Long.class),asList("id"), new ArrayList<Field>(), new ArrayList<Method>(), new ArrayList<Method>());
+        PartitionComponents partitionComponents = mock(PartitionComponents.class);
         ClusteringOrder clusteringOrder = new ClusteringOrder("name", Sorting.DESC);
-        ClusteringComponents clusteringComponents = new ClusteringComponents(Arrays.<Class<?>>asList(String.class),asList("name"), null, null, null,Arrays.asList(clusteringOrder));
-        EmbeddedIdProperties props = new EmbeddedIdProperties(partitionComponents, clusteringComponents,
-                new ArrayList<Class<?>>(), asList("a", "b", "c"), new ArrayList<Field>(), new ArrayList<Method>(),
-                new ArrayList<Method>(), new ArrayList<String>());
+        ClusteringComponents clusteringComponents = mock(ClusteringComponents.class);
+        EmbeddedIdProperties props = EmbeddedIdPropertiesBuilder.buildEmbeddedIdProperties(partitionComponents, clusteringComponents, "entity");
         idMeta.setEmbeddedIdProperties(props);
 
         Map<String, PropertyMeta> propertyMetas = new HashMap<>();
@@ -248,9 +241,7 @@ public class TableCreatorTest {
 
     @Test
     public void should_create_clustered_table() throws Exception {
-        PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class).type(EMBEDDED_ID).field("id")
-                .compNames("indexCol", "count", "uuid").compClasses(Long.class, Integer.class, UUID.class)
-                .compTimeUUID("uuid").clusteringOrders(new ClusteringOrder("count", Sorting.DESC)).build();
+        PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class).type(EMBEDDED_ID).field("id").build();
 
         PropertyMeta longColPM = PropertyMetaTestBuilder.valueClass(Long.class).type(SIMPLE).field("longCol").build();
         longColPM.setStaticColumn(true);
@@ -280,8 +271,7 @@ public class TableCreatorTest {
     @Test
     public void should_create_clustered_counter_table() throws Exception {
         PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class).type(EMBEDDED_ID).field("id")
-                .compNames("indexCol", "count", "uuid").compClasses(Long.class, Integer.class, UUID.class)
-                .clusteringOrders(new ClusteringOrder("count", Sorting.DESC)).build();
+                .build();
 
         PropertyMeta counterColPM = PropertyMetaTestBuilder.keyValueClass(Void.class, Counter.class).type(COUNTER)
                 .field("counterCol").build();

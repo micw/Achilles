@@ -18,14 +18,12 @@ package info.archinnov.achilles.internal.metadata.holder;
 import static info.archinnov.achilles.internal.metadata.holder.PropertyType.*;
 import static info.archinnov.achilles.type.ConsistencyLevel.*;
 import static org.fest.assertions.api.Assertions.assertThat;
-import info.archinnov.achilles.internal.metadata.holder.EmbeddedIdProperties;
-import info.archinnov.achilles.internal.metadata.holder.PropertyMeta;
-import info.archinnov.achilles.internal.metadata.holder.PropertyMetaBuilder;
-import info.archinnov.achilles.internal.metadata.transcoding.CompoundTranscoder;
-import info.archinnov.achilles.internal.metadata.transcoding.ListTranscoder;
-import info.archinnov.achilles.internal.metadata.transcoding.MapTranscoder;
-import info.archinnov.achilles.internal.metadata.transcoding.SetTranscoder;
-import info.archinnov.achilles.internal.metadata.transcoding.SimpleTranscoder;
+import static org.mockito.Mockito.mock;
+
+import info.archinnov.achilles.internal.metadata.transcoding.codec.ListCodec;
+import info.archinnov.achilles.internal.metadata.transcoding.codec.MapCodec;
+import info.archinnov.achilles.internal.metadata.transcoding.codec.SetCodec;
+import info.archinnov.achilles.internal.metadata.transcoding.codec.SimpleCodec;
 import info.archinnov.achilles.test.mapping.entity.CompleteBean;
 import info.archinnov.achilles.test.parser.entity.Bean;
 import info.archinnov.achilles.test.parser.entity.EmbeddedKey;
@@ -67,28 +65,28 @@ public class PropertyMetaBuilderTest {
 		assertThat(built.isEmbeddedId()).isFalse();
 		assertThat(built.getReadConsistencyLevel()).isEqualTo(ONE);
 		assertThat(built.getWriteConsistencyLevel()).isEqualTo(ALL);
-		assertThat(built.getTranscoder()).isInstanceOf(SimpleTranscoder.class);
+		assertThat(built.simpleCodec).isInstanceOf(SimpleCodec.class);
 	}
 
 	@Test
 	public void should_build_compound_id() throws Exception {
 
-		EmbeddedIdProperties props = new EmbeddedIdProperties(null, null, null, null, null, null,null, null);
+        EmbeddedIdProperties props = mock(EmbeddedIdProperties.class);
 
-		PropertyMeta built = PropertyMetaBuilder.factory().type(EMBEDDED_ID).propertyName("prop").accessors(accessors)
-				.objectMapper(objectMapper).consistencyLevels(Pair.create(ONE, ALL)).embeddedIdProperties(props)
-				.build(Void.class, EmbeddedKey.class);
+        PropertyMeta built = PropertyMetaBuilder.factory().type(EMBEDDED_ID).propertyName("prop").accessors(accessors)
+                .objectMapper(objectMapper).consistencyLevels(Pair.create(ONE, ALL)).embeddedIdProperties(props)
+                .build(Void.class, EmbeddedKey.class);
 
-		assertThat(built.type()).isEqualTo(EMBEDDED_ID);
-		assertThat(built.getPropertyName()).isEqualTo("prop");
+        assertThat(built.type()).isEqualTo(EMBEDDED_ID);
+        assertThat(built.getPropertyName()).isEqualTo("prop");
 
-		assertThat(built.<EmbeddedKey> getValueClass()).isEqualTo(EmbeddedKey.class);
+        assertThat(built.<EmbeddedKey>getValueClass()).isEqualTo(EmbeddedKey.class);
 
-		assertThat(built.isEmbeddedId()).isTrue();
-		assertThat(built.getReadConsistencyLevel()).isEqualTo(ONE);
-		assertThat(built.getWriteConsistencyLevel()).isEqualTo(ALL);
-		assertThat(built.getTranscoder()).isInstanceOf(CompoundTranscoder.class);
-	}
+        assertThat(built.isEmbeddedId()).isTrue();
+        assertThat(built.getReadConsistencyLevel()).isEqualTo(ONE);
+        assertThat(built.getWriteConsistencyLevel()).isEqualTo(ALL);
+        assertThat(built.simpleCodec).isNull();
+    }
 
 
 	@Test
@@ -102,7 +100,7 @@ public class PropertyMetaBuilderTest {
 		assertThat(built.<Bean> getValueClass()).isEqualTo(Bean.class);
 
 		assertThat(built.isEmbeddedId()).isFalse();
-		assertThat(built.getTranscoder()).isInstanceOf(SimpleTranscoder.class);
+		assertThat(built.simpleCodec).isInstanceOf(SimpleCodec.class);
 	}
 
 	@Test
@@ -118,7 +116,7 @@ public class PropertyMetaBuilderTest {
 
 		assertThat(built.isEmbeddedId()).isFalse();
 		assertThat(built.nullValueForCollectionAndMap()).isNotNull().isInstanceOf(List.class);
-		assertThat(built.getTranscoder()).isInstanceOf(ListTranscoder.class);
+		assertThat(built.listCodec).isInstanceOf(ListCodec.class);
 	}
 
 	@Test
@@ -133,7 +131,7 @@ public class PropertyMetaBuilderTest {
 		assertThat(built.<String> getValueClass()).isEqualTo(String.class);
 
 		assertThat(built.isEmbeddedId()).isFalse();
-		assertThat(built.getTranscoder()).isInstanceOf(SetTranscoder.class);
+		assertThat(built.setCodec).isInstanceOf(SetCodec.class);
 	}
 
 	@Test
@@ -150,7 +148,7 @@ public class PropertyMetaBuilderTest {
 		assertThat(built.<String> getValueClass()).isEqualTo(String.class);
 
 		assertThat(built.isEmbeddedId()).isFalse();
-		assertThat(built.getTranscoder()).isInstanceOf(MapTranscoder.class);
+		assertThat(built.mapCodec).isInstanceOf(MapCodec.class);
 	}
 
 	@Test
@@ -164,7 +162,7 @@ public class PropertyMetaBuilderTest {
 		assertThat(built.<Bean> getKeyClass()).isEqualTo(Bean.class);
 
 		assertThat(built.<String> getValueClass()).isEqualTo(String.class);
+        assertThat(built.mapCodec).isInstanceOf(MapCodec.class);
 
-		assertThat(built.getTranscoder()).isInstanceOf(MapTranscoder.class);
 	}
 }

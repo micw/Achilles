@@ -26,6 +26,11 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import info.archinnov.achilles.internal.metadata.transcoding.codec.*;
+import info.archinnov.achilles.internal.validation.Validator;
+import info.archinnov.achilles.json.DefaultJacksonMapper;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,7 +39,6 @@ import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import info.archinnov.achilles.exception.AchillesException;
-import info.archinnov.achilles.internal.metadata.transcoding.DataTranscoder;
 import info.archinnov.achilles.internal.persistence.operations.InternalCounterImpl;
 import info.archinnov.achilles.internal.reflection.ReflectionInvoker;
 import info.archinnov.achilles.type.ConsistencyLevel;
@@ -43,6 +47,7 @@ import info.archinnov.achilles.type.Pair;
 public class PropertyMeta {
 
     private static final Logger log = LoggerFactory.getLogger(PropertyMeta.class);
+    private ObjectMapper defaultJacksonMapper = DefaultJacksonMapper.INSTANCE.get();
 
     public static final Predicate<PropertyMeta> STATIC_COLUMN_FILTER = new Predicate<PropertyMeta>() {
         @Override
@@ -84,10 +89,13 @@ public class PropertyMeta {
     private IndexProperties indexProperties;
     private Pair<ConsistencyLevel, ConsistencyLevel> consistencyLevels;
     private boolean timeUUID = false;
-    private DataTranscoder transcoder;
     private boolean emptyCollectionAndMapIfNull = false;
     private boolean staticColumn = false;
     private ReflectionInvoker invoker = new ReflectionInvoker();
+    protected SimpleCodec simpleCodec;
+    protected ListCodec listCodec;
+    protected SetCodec setCodec;
+    protected MapCodec mapCodec;
 
     public List<Field> getComponentFields() {
         log.trace("Get component fields");
@@ -247,11 +255,10 @@ public class PropertyMeta {
     }
 
     public boolean isClustered() {
-        boolean isClustered = false;
         if (embeddedIdProperties != null) {
-            isClustered = !embeddedIdProperties.getClusteringComponentClasses().isEmpty();
+            return  !embeddedIdProperties.getClusteringComponentClasses().isEmpty();
         }
-        return isClustered;
+        return false;
     }
 
     public boolean isCollectionAndMap() {
@@ -267,111 +274,121 @@ public class PropertyMeta {
     }
 
     public Object decode(Object cassandraValue) {
-        return cassandraValue == null ? null : transcoder.decode(this, cassandraValue);
-    }
-
-    public Object decodeKey(Object cassandraValue) {
-        return cassandraValue == null ? null : transcoder.decodeKey(this, cassandraValue);
+        return cassandraValue == null ? null : simpleCodec.decode(cassandraValue);
     }
 
     public List<Object> decode(List<?> cassandraValue) {
-        return cassandraValue == null ? null : transcoder.decode(this, cassandraValue);
+        return cassandraValue == null ? null : listCodec.decode(cassandraValue);
     }
 
     public Set<Object> decode(Set<?> cassandraValue) {
-        return cassandraValue == null ? null : transcoder.decode(this, cassandraValue);
+        return cassandraValue == null ? null : setCodec.decode(cassandraValue);
     }
 
     public Map<Object, Object> decode(Map<?, ?> cassandraValue) {
-        return cassandraValue == null ? null : transcoder.decode(this, cassandraValue);
+        return cassandraValue == null ? null : mapCodec.decode(cassandraValue);
     }
 
     public Object decodeFromComponents(List<?> components) {
-        return components == null ? null : transcoder.decodeFromComponents(this, components);
+        Validator.validateTrue(type == PropertyType.EMBEDDED_ID,"Cannot decode components '%s' for the property '%s' which is not a compound primary key", components, propertyName);
+        return components == null ? null : embeddedIdProperties.decodeFromComponents(this.instantiate(), components);
+    }
+
+    public Object decodeFromCassandra(Object fromCassandra) {
+        switch (type) {
+            case SIMPLE:
+                return simpleCodec.decode(fromCassandra);
+            case LIST:
+                return listCodec.decode((List)fromCassandra);
+            case SET:
+                return setCodec.decode((Set)fromCassandra);
+            case MAP:
+                return mapCodec.decode((Map)fromCassandra);
+            default:
+                throw new AchillesException(String.format("Cannot decode value '%s' from CQL3 for property '%s' of type '%s'",fromCassandra, propertyName, type.name()));
+        }
+    }
+
+    public Object encodeToCassandra(Object fromJava) {
+        switch (type) {
+            case SIMPLE:
+                return simpleCodec.encode(fromJava);
+            case LIST:
+                return listCodec.encode((List) fromJava);
+            case SET:
+                return setCodec.encode((Set) fromJava);
+            case MAP:
+                return mapCodec.encode((Map) fromJava);
+            case COUNTER:
+                return  ((InternalCounterImpl) fromJava).getInternalCounterDelta();
+            default:
+                throw new AchillesException(String.format("Cannot encode value '%s' to CQL3 for property '%s' of type '%s'",fromJava, propertyName, type.name()));
+        }
     }
 
     public Object getAndEncodeValueForCassandra(Object entity) {
         Object value = getValueFromField(entity);
-        Object encoded = null;
         if (value != null) {
-            switch (type) {
-                case SIMPLE:
-                    encoded = transcoder.encode(this, value);
-                    break;
-                case LIST:
-                    encoded = transcoder.encode(this, (List<?>) value);
-                    break;
-                case SET:
-                    encoded = transcoder.encode(this, (Set<?>) value);
-                    break;
-                case MAP:
-                    encoded = transcoder.encode(this, (Map<?, ?>) value);
-                    break;
-                case COUNTER:
-                    encoded = ((InternalCounterImpl) value).getInternalCounterDelta();
-                    break;
-                default:
-                    throw new AchillesException("Cannot encode value '" + value + "' for Cassandra for property '"
-                            + propertyName + "' of type '" + type.name() + "'");
-            }
+            return encodeToCassandra(value);
+        } else {
+            return null;
         }
-        return encoded;
     }
 
     public Object encode(Object entityValue) {
-        return entityValue == null ? null : transcoder.encode(this, entityValue);
-    }
-
-    public Object encodeKey(Object entityValue) {
-        return entityValue == null ? null : transcoder.encodeKey(this, entityValue);
+        return entityValue == null ? null : simpleCodec.encode(entityValue);
     }
 
     public <T> List<Object> encode(List<T> entityValue) {
-        return entityValue == null ? null : transcoder.encode(this, entityValue);
+        return entityValue == null ? null : listCodec.encode(entityValue);
     }
 
     public Set<Object> encode(Set<?> entityValue) {
-        return entityValue == null ? null : transcoder.encode(this, entityValue);
+        return entityValue == null ? null : setCodec.encode(entityValue);
     }
 
     public Map<Object, Object> encode(Map<?, ?> entityValue) {
-        return entityValue == null ? null : transcoder.encode(this, entityValue);
+        return entityValue == null ? null : mapCodec.encode(entityValue);
     }
 
     public List<Object> encodeToComponents(Object compoundKey, boolean onlyStaticColumns) {
-        return compoundKey == null ? null : transcoder.encodeToComponents(this, compoundKey, onlyStaticColumns);
+        Validator.validateTrue(type == PropertyType.EMBEDDED_ID,"Cannot encode object '%s' for the property '%s' which is not a compound primary key", compoundKey, propertyName);
+        return compoundKey == null ? null : embeddedIdProperties.encodeToComponents(compoundKey, onlyStaticColumns);
     }
 
-    public List<Object> encodeToComponents(List<Object> components) {
-        return components == null ? null : transcoder.encodeToComponents(this, components);
-    }
 
     List<Object> encodePartitionComponents(List<Object> rawPartitionComponents) {
-        return null;
+        Validator.validateTrue(type == PropertyType.EMBEDDED_ID,"Cannot encode partition components '%s' for the property '%s' which is not a compound primary key", rawPartitionComponents, propertyName);
+        return embeddedIdProperties.encodePartitionComponents(rawPartitionComponents);
     }
 
     List<Object> encodePartitionComponentsIN(List<Object> rawPartitionComponentsIN) {
-        return null;
+        Validator.validateTrue(type == PropertyType.EMBEDDED_ID,"Cannot encode partition components '%s' for the property '%s' which is not a compound primary key", rawPartitionComponentsIN, propertyName);
+        return embeddedIdProperties.encodePartitionComponentsIN(rawPartitionComponentsIN);
     }
 
     List<Object> encodeClusteringKeys(List<Object> rawClusteringKeys) {
-        return null;
+        Validator.validateTrue(type == PropertyType.EMBEDDED_ID,"Cannot encode clustering components '%s' for the property '%s' which is not a compound primary key", rawClusteringKeys, propertyName);
+        return embeddedIdProperties.encodeClusteringKeys(rawClusteringKeys);
     }
 
     List<Object> encodeClusteringKeysIN(List<Object> rawClusteringKeysIN) {
-        return null;
+        Validator.validateTrue(type == PropertyType.EMBEDDED_ID,"Cannot encode clustering components '%s' for the property '%s' which is not a compound primary key", rawClusteringKeysIN, propertyName);
+        return embeddedIdProperties.encodeClusteringKeysIN(rawClusteringKeysIN);
     }
 
     public String forceEncodeToJSON(Object object) {
-        return transcoder.forceEncodeToJSON(object);
-    }
-
-    public Object forceDecodeFromJSON(String cassandraValue, Class<?> targetType) {
-        return transcoder.forceDecodeFromJSON(cassandraValue, targetType);
-    }
-
-    public Object forceDecodeFromJSON(String cassandraValue) {
-        return transcoder.forceDecodeFromJSON(cassandraValue, valueClass);
+        log.trace("Force encode {} to JSON", object);
+        Validator.validateNotNull(object, "Cannot encode to JSON null primary key for class '%s'", entityClassName);
+        if (object instanceof String) {
+            return String.class.cast(object);
+        } else {
+            try {
+                return this.defaultJacksonMapper.writeValueAsString(object);
+            } catch (Exception e) {
+                throw new AchillesException(String.format("Error while encoding primary key '%s' for class '%s'", object, entityClassName), e);
+            }
+        }
     }
 
     public Object getPrimaryKey(Object entity) {
@@ -428,6 +445,26 @@ public class PropertyMeta {
         } else {
             return valueClass;
         }
+    }
+
+    public Object nullValueForCollectionAndMap() {
+        Object value = null;
+        if (emptyCollectionAndMapIfNull) {
+            switch (type) {
+                case LIST:
+                    value = new ArrayList<>();
+                    break;
+                case SET:
+                    value = new HashSet<>();
+                    break;
+                case MAP:
+                    value = new HashMap<>();
+                    break;
+                default:
+                    break;
+            }
+        }
+        return value;
     }
 
     // //////// Getters & setters
@@ -529,14 +566,6 @@ public class PropertyMeta {
         this.indexProperties = indexProperties;
     }
 
-    public DataTranscoder getTranscoder() {
-        return transcoder;
-    }
-
-    public void setTranscoder(DataTranscoder transcoder) {
-        this.transcoder = transcoder;
-    }
-
     public ReflectionInvoker getInvoker() {
         return invoker;
     }
@@ -569,25 +598,21 @@ public class PropertyMeta {
         return propertyName;
     }
 
-    public Object nullValueForCollectionAndMap() {
-        Object value = null;
-        if (emptyCollectionAndMapIfNull) {
-            switch (type) {
-                case LIST:
-                    value = new ArrayList<>();
-                    break;
-                case SET:
-                    value = new HashSet<>();
-                    break;
-                case MAP:
-                    value = new HashMap<>();
-                    break;
-                default:
-                    break;
-            }
-        }
-        return value;
+    public void setSimpleCodec(SimpleCodec simpleCodec) {
+        this.simpleCodec = simpleCodec;
     }
+
+    public void setListCodec(ListCodec listCodec) {
+        this.listCodec = listCodec;
+    }
+
+    public void setSetCodec(SetCodec setCodec) {
+        this.setCodec = setCodec;
+    }
+    public void setMapCodec(MapCodec mapCodec) {
+        this.mapCodec = mapCodec;
+    }
+
 
     @Override
     public String toString() {

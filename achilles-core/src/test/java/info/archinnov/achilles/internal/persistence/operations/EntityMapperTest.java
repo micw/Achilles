@@ -141,7 +141,7 @@ public class EntityMapperTest {
     @Test
     public void should_set_compound_key_to_entity() throws Exception {
         PropertyMeta pm = PropertyMetaTestBuilder.completeBean(Void.class, String.class).field("name").accessors()
-                .type(EMBEDDED_ID).compNames("name").invoker(invoker).build();
+                .type(EMBEDDED_ID).invoker(invoker).build();
 
         EmbeddedKey embeddedKey = new EmbeddedKey();
         when(cqlRowInvoker.extractCompoundPrimaryKeyFromRow(row, entityMeta, pm, MANAGED)).thenReturn(embeddedKey);

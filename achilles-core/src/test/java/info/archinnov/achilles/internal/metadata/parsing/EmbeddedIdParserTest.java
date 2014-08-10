@@ -17,13 +17,20 @@ package info.archinnov.achilles.internal.metadata.parsing;
 
 import static info.archinnov.achilles.schemabuilder.Create.Options.ClusteringOrder.Sorting.DESC;
 import static org.fest.assertions.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.UUID;
+
+import info.archinnov.achilles.internal.metadata.parsing.context.EntityParsingContext;
+import info.archinnov.achilles.internal.metadata.parsing.context.PropertyParsingContext;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
-import org.mockito.InjectMocks;
+import org.mockito.*;
 import org.mockito.runners.MockitoJUnitRunner;
 import info.archinnov.achilles.exception.AchillesBeanMappingException;
 import info.archinnov.achilles.internal.metadata.holder.EmbeddedIdProperties;
@@ -51,15 +58,40 @@ public class EmbeddedIdParserTest {
     @InjectMocks
     private EmbeddedIdParser parser;
 
+    @Mock
+    private PropertyParser propertyParser;
+
+    @Mock
+    private EntityParsingContext context;
+
+    @Mock
+    private PropertyParsingContext propertyParsingContext;
+
+    @Captor
+    private ArgumentCaptor<Field> fieldArgumentCaptor;
+
+    @Before
+    public void setUp() {
+        when(propertyParsingContext.duplicateForField(fieldArgumentCaptor.capture()))
+                .thenReturn(new PropertyParsingContext(context, fieldArgumentCaptor.getValue()));
+    }
+
     @Test
     public void should_parse_embedded_id() throws Exception {
+        class Test {
+            private CorrectEmbeddedKey key;
+        }
+
+        Field field = Test.class.getDeclaredField("key");
+
+
         Method nameGetter = CorrectEmbeddedKey.class.getMethod("getName");
         Method nameSetter = CorrectEmbeddedKey.class.getMethod("setName", String.class);
 
         Method rankGetter = CorrectEmbeddedKey.class.getMethod("getRank");
         Method rankSetter = CorrectEmbeddedKey.class.getMethod("setRank", int.class);
 
-        EmbeddedIdProperties props = parser.parseEmbeddedId(CorrectEmbeddedKey.class);
+        EmbeddedIdProperties props = parser.parseEmbeddedId(CorrectEmbeddedKey.class, propertyParser);
 
         assertThat(props.getComponentGetters()).containsExactly(nameGetter, rankGetter);
         assertThat(props.getComponentSetters()).containsExactly(nameSetter, rankSetter);
@@ -84,7 +116,7 @@ public class EmbeddedIdParserTest {
         Method countSetter = CorrectEmbeddedReversedKey.class.getMethod("setCount", int.class);
 
 
-        EmbeddedIdProperties props = parser.parseEmbeddedId(CorrectEmbeddedReversedKey.class);
+        EmbeddedIdProperties props = parser.parseEmbeddedId(CorrectEmbeddedReversedKey.class, propertyParser);
 
         assertThat(props.getComponentGetters()).containsExactly(nameGetter, rankGetter, countGetter);
         assertThat(props.getComponentSetters()).containsExactly(nameSetter, rankSetter, countSetter);
@@ -101,7 +133,7 @@ public class EmbeddedIdParserTest {
 
     @Test
     public void should_parse_embedded_id_with_time_uuid() throws Exception {
-        EmbeddedIdProperties props = parser.parseEmbeddedId(EmbeddedKeyWithTimeUUID.class);
+        EmbeddedIdProperties props = parser.parseEmbeddedId(EmbeddedKeyWithTimeUUID.class, propertyParser);
 
         assertThat(props.getTimeUUIDComponents()).containsExactly("date");
         assertThat(props.getComponentNames()).containsExactly("date", "ranking");
@@ -113,7 +145,7 @@ public class EmbeddedIdParserTest {
         exception.expectMessage("The class 'java.util.List' is not a valid component type for the @EmbeddedId class '"
                 + EmbeddedKeyIncorrectType.class.getCanonicalName() + "'");
 
-        parser.parseEmbeddedId(EmbeddedKeyIncorrectType.class);
+        parser.parseEmbeddedId(EmbeddedKeyIncorrectType.class, propertyParser);
     }
 
     @Test
@@ -122,7 +154,7 @@ public class EmbeddedIdParserTest {
         exception.expectMessage("The component ordering is wrong for @EmbeddedId class '"
                 + EmbeddedKeyWithNegativeOrder.class.getCanonicalName() + "'");
 
-        parser.parseEmbeddedId(EmbeddedKeyWithNegativeOrder.class);
+        parser.parseEmbeddedId(EmbeddedKeyWithNegativeOrder.class, propertyParser);
     }
 
     @Test
@@ -131,7 +163,7 @@ public class EmbeddedIdParserTest {
         exception.expectMessage("There should be at least 2 fields annotated with @Order for the @EmbeddedId class '"
                 + EmbeddedKeyWithNoAnnotation.class.getCanonicalName() + "'");
 
-        parser.parseEmbeddedId(EmbeddedKeyWithNoAnnotation.class);
+        parser.parseEmbeddedId(EmbeddedKeyWithNoAnnotation.class, propertyParser);
     }
 
     @Test
@@ -141,7 +173,7 @@ public class EmbeddedIdParserTest {
         exception.expectMessage("The order '1' is duplicated in @EmbeddedId class '"
                 + EmbeddedKeyWithDuplicateOrder.class.getCanonicalName() + "'");
 
-        parser.parseEmbeddedId(EmbeddedKeyWithDuplicateOrder.class);
+        parser.parseEmbeddedId(EmbeddedKeyWithDuplicateOrder.class, propertyParser);
     }
 
 
@@ -150,12 +182,12 @@ public class EmbeddedIdParserTest {
         exception.expect(AchillesBeanMappingException.class);
         exception.expectMessage("There should be at least 2 fields annotated with @Order for the @EmbeddedId class '"
                 + EmbeddedKeyWithOnlyOneComponent.class.getCanonicalName() + "'");
-        parser.parseEmbeddedId(EmbeddedKeyWithOnlyOneComponent.class);
+        parser.parseEmbeddedId(EmbeddedKeyWithOnlyOneComponent.class, propertyParser);
     }
 
     @Test
     public void should_parse_embedded_id_with_compound_partition_key() throws Exception {
-        EmbeddedIdProperties props = parser.parseEmbeddedId(EmbeddedKeyWithCompoundPartitionKey.class);
+        EmbeddedIdProperties props = parser.parseEmbeddedId(EmbeddedKeyWithCompoundPartitionKey.class, propertyParser);
 
         assertThat(props.isCompositePartitionKey()).isTrue();
         assertThat(props.getPartitionComponentNames()).containsExactly("id", "type");
@@ -175,7 +207,7 @@ public class EmbeddedIdParserTest {
         exception.expect(AchillesBeanMappingException.class);
         exception.expectMessage("The composite partition key ordering is wrong for @EmbeddedId class '"
                 + EmbeddedKeyWithInconsistentCompoundPartitionKey.class.getCanonicalName() + "'");
-        parser.parseEmbeddedId(EmbeddedKeyWithInconsistentCompoundPartitionKey.class);
+        parser.parseEmbeddedId(EmbeddedKeyWithInconsistentCompoundPartitionKey.class, propertyParser);
     }
 
     @Test
@@ -184,13 +216,13 @@ public class EmbeddedIdParserTest {
         exception.expectMessage(String.format("The property 'rank' of class '%s' cannot be a static column because it belongs to the primary key"
                 ,EmbeddedKeyWithStaticColumn.class.getCanonicalName()));
 
-        parser.parseEmbeddedId(EmbeddedKeyWithStaticColumn.class);
+        parser.parseEmbeddedId(EmbeddedKeyWithStaticColumn.class, propertyParser);
     }
 
     @Test
     public void should_parse_embedded_id_as_compound_partition_key() throws Exception {
 
-        EmbeddedIdProperties props = parser.parseEmbeddedId(EmbeddedKeyAsCompoundPartitionKey.class);
+        EmbeddedIdProperties props = parser.parseEmbeddedId(EmbeddedKeyAsCompoundPartitionKey.class, propertyParser);
 
         assertThat(props.isCompositePartitionKey()).isTrue();
         assertThat(props.getPartitionComponentNames()).containsExactly("id", "type");
@@ -208,7 +240,7 @@ public class EmbeddedIdParserTest {
     @Test
     public void should_parse_embedded_key_with_inheritance() throws Exception {
         //When
-        EmbeddedIdProperties props = parser.parseEmbeddedId(EmbeddedKeyChild1.class);
+        EmbeddedIdProperties props = parser.parseEmbeddedId(EmbeddedKeyChild1.class, propertyParser);
 
         //Then
         assertThat(props.isCompositePartitionKey()).isFalse();
@@ -227,7 +259,7 @@ public class EmbeddedIdParserTest {
     @Test
     public void should_parse_embedded_key_with_complicated_inheritance() throws Exception {
         //When
-        EmbeddedIdProperties props = parser.parseEmbeddedId(EmbeddedKeyChild3.class);
+        EmbeddedIdProperties props = parser.parseEmbeddedId(EmbeddedKeyChild3.class, propertyParser);
 
         //Then
         assertThat(props.isCompositePartitionKey()).isTrue();

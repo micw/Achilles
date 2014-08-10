@@ -250,7 +250,7 @@ public class SchemaUpdateIT {
     @Entity(table = "new_counter_field")
     public static class ClusteredCounterEntityWithNewCounterField {
 
-        @EmbeddedId(name = "id")
+        @EmbeddedId
         private Compound id;
 
         @Column(name = "existing_counter")

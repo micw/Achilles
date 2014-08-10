@@ -199,7 +199,7 @@ public class ReflectionInvokerTest {
 	public void should_get_partition_key() throws Exception {
 		long partitionKey = RandomUtils.nextLong();
 		Field userIdField = EmbeddedKey.class.getDeclaredField("userId");
-		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class).compFields(userIdField)
+		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class)
 				.type(PropertyType.EMBEDDED_ID).build();
 
 		EmbeddedKey embeddedKey = new EmbeddedKey(partitionKey, "name");
@@ -211,7 +211,7 @@ public class ReflectionInvokerTest {
 	public void should_exception_when_getting_partition_key() throws Exception {
 
 		Field userIdField = EmbeddedKey.class.getDeclaredField("userId");
-		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class).compFields(userIdField)
+		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class)
 				.type(PropertyType.EMBEDDED_ID).build();
 
 		exception.expect(AchillesException.class);
@@ -225,7 +225,7 @@ public class ReflectionInvokerTest {
 	public void should_return_null_for_partition_key_if_not_embedded_id() throws Exception {
 		long partitionKey = RandomUtils.nextLong();
 		Field userIdField = EmbeddedKey.class.getDeclaredField("userId");
-		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class).compFields(userIdField)
+		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class)
 				.type(PropertyType.ID).build();
 
 		EmbeddedKey embeddedKey = new EmbeddedKey(partitionKey, "name");
@@ -245,7 +245,7 @@ public class ReflectionInvokerTest {
 		Long partitionKey = RandomUtils.nextLong();
 
 		Field userIdField = EmbeddedKey.class.getDeclaredField("userId");
-		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class).compFields(userIdField).build();
+		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class).build();
 
 		Object actual = invoker.instantiateEmbeddedIdWithPartitionComponents(idMeta,
 				Arrays.<Object> asList(partitionKey));

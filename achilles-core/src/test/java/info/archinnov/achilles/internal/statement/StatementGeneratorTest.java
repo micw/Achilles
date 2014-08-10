@@ -149,35 +149,6 @@ public class StatementGeneratorTest {
         assertThat(pair.right[0]).isEqualTo("whatever");
     }
 
-
-    private EntityMeta prepareEntityMeta(String... componentNames) throws Exception {
-        PropertyMeta idMeta;
-        if (componentNames.length > 1) {
-            idMeta = completeBean(Void.class, EmbeddedKey.class).field("id")
-                    .compNames(componentNames).type(PropertyType.EMBEDDED_ID).build();
-        } else {
-            idMeta = completeBean(Void.class, Long.class).field(componentNames[0]).type(ID)
-                    .build();
-        }
-
-        PropertyMeta ageMeta = completeBean(Void.class, Long.class).field("age").type(SIMPLE)
-                .build();
-
-        PropertyMeta nameMeta = completeBean(Void.class, String.class).field("name")
-                .type(SIMPLE).build();
-
-        PropertyMeta labelMeta = completeBean(Void.class, String.class).field("label")
-                .type(SIMPLE).build();
-
-        EntityMeta meta = new EntityMeta();
-        meta.setTableName("table");
-        meta.setAllMetasExceptCounters(asList(idMeta, ageMeta, nameMeta, labelMeta));
-        meta.setAllMetasExceptIdAndCounters(asList(ageMeta, nameMeta, labelMeta));
-        meta.setIdMeta(idMeta);
-
-        return meta;
-    }
-
     private Update.Assignments update() {
         return QueryBuilder.update("table").with();
     }

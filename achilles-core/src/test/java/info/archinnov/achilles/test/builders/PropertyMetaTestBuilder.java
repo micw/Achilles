@@ -18,24 +18,14 @@ package info.archinnov.achilles.test.builders;
 import static info.archinnov.achilles.schemabuilder.Create.Options.ClusteringOrder;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
+import info.archinnov.achilles.internal.metadata.holder.*;
+import info.archinnov.achilles.json.DefaultJacksonMapperFactory;
 import org.apache.commons.lang.StringUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import info.archinnov.achilles.internal.metadata.holder.ClusteringComponents;
-import info.archinnov.achilles.internal.metadata.holder.CounterProperties;
-import info.archinnov.achilles.internal.metadata.holder.EmbeddedIdProperties;
-import info.archinnov.achilles.internal.metadata.holder.PartitionComponents;
-import info.archinnov.achilles.internal.metadata.holder.PropertyMeta;
-import info.archinnov.achilles.internal.metadata.holder.PropertyType;
 import info.archinnov.achilles.internal.metadata.parsing.EntityIntrospector;
-import info.archinnov.achilles.internal.metadata.transcoding.CompoundTranscoder;
-import info.archinnov.achilles.internal.metadata.transcoding.DataTranscoder;
-import info.archinnov.achilles.internal.metadata.transcoding.ListTranscoder;
-import info.archinnov.achilles.internal.metadata.transcoding.MapTranscoder;
-import info.archinnov.achilles.internal.metadata.transcoding.SetTranscoder;
-import info.archinnov.achilles.internal.metadata.transcoding.SimpleTranscoder;
 import info.archinnov.achilles.internal.reflection.ReflectionInvoker;
 import info.archinnov.achilles.test.mapping.entity.CompleteBean;
 import info.archinnov.achilles.type.ConsistencyLevel;
@@ -45,10 +35,8 @@ import info.archinnov.achilles.type.Pair;
 public class PropertyMetaTestBuilder<T, K, V> {
     private EntityIntrospector achillesEntityIntrospector = new EntityIntrospector();
 
-    private static final List<Class<?>> noClasses = Arrays.asList();
-    private static final List<String> noNames = Arrays.asList();
-    private static final List<Field> noFields = Arrays.asList();
-    private static final List<Method> noAccessors = Arrays.asList();
+    private EmbeddedIdPropertiesBuilder partitionBuilder = new EmbeddedIdPropertiesBuilder();
+    private EmbeddedIdPropertiesBuilder clusteringBuilder = new EmbeddedIdPropertiesBuilder();
 
     private Class<T> clazz;
     private String field;
@@ -57,33 +45,14 @@ public class PropertyMetaTestBuilder<T, K, V> {
     private Class<K> keyClass;
     private Class<V> valueClass;
 
-    private List<Class<?>> componentClasses;
-    private List<String> componentNames;
-    private List<Field> componentFields;
-    private List<Method> componentGetters;
-    private List<Method> componentSetters;
 
-    private List<Class<?>> partitionClasses;
-    private List<String> partitionNames;
-    private List<Field> partitionFields;
-    private List<Method> partitionGetters;
-    private List<Method> partitionSetters;
-
-    private List<Class<?>> clusteringClasses;
-    private List<String> clusteringNames;
-    private List<Field> clusteringFields;
-    private List<Method> clusteringGetters;
-    private List<Method> clusteringSetters;
 
     private boolean buildAccessors;
     private ObjectMapper objectMapper;
     private PropertyMeta counterIdMeta;
     private String fqcn;
     private Pair<ConsistencyLevel, ConsistencyLevel> consistencyLevels;
-    private DataTranscoder transcoder;
     private ReflectionInvoker invoker;
-    private List<String> compTimeUUID;
-    private List<ClusteringOrder> clusteringOrders = new ArrayList<>();
     private boolean staticColumn = false;
 
     public static <T, K, V> PropertyMetaTestBuilder<T, K, V> of(Class<T> clazz, Class<K> keyClass, Class<V> valueClass) {
@@ -128,13 +97,8 @@ public class PropertyMetaTestBuilder<T, K, V> {
             }
         }
 
-        if (componentClasses != null || componentNames != null || //
-                componentFields != null || componentGetters != null || componentSetters != null || //
-                partitionClasses != null || partitionNames != null || //
-                partitionGetters != null || partitionSetters != null || //
-                clusteringClasses != null || clusteringNames != null || //
-                clusteringGetters != null || clusteringSetters != null) {
-            buildEmbeddedIdProperties(pm);
+        if (!partitionBuilder.getPropertyMetas().isEmpty()) {
+            pm.setEmbeddedIdProperties(EmbeddedIdPropertiesBuilder.buildEmbeddedIdProperties(partitionBuilder.buildPartitionKeys(), clusteringBuilder.buildClusteringKeys(), entityClassName));
         }
 
         if (counterIdMeta != null || fqcn != null) {
@@ -147,114 +111,11 @@ public class PropertyMetaTestBuilder<T, K, V> {
             consistencyLevels = Pair.create(ConsistencyLevel.ONE, ConsistencyLevel.ONE);
         }
         pm.setConsistencyLevels(consistencyLevels);
-        setTranscoder(pm);
         pm.setInvoker(invoker);
         pm.setStaticColumn(staticColumn);
         return pm;
     }
 
-    private void buildEmbeddedIdProperties(PropertyMeta pm) {
-        compTimeUUID = compTimeUUID != null ? compTimeUUID : new ArrayList<String>();
-
-        List<Class<?>> partitionClasses, clusteringClasses;
-        if (componentClasses != null) {
-            partitionClasses = Arrays.<Class<?>>asList(componentClasses.get(0));
-            if (componentClasses.size() > 1)
-                clusteringClasses = componentClasses.subList(1, componentClasses.size());
-            else
-                clusteringClasses = noClasses;
-        } else {
-            partitionClasses = this.partitionClasses;
-            clusteringClasses = this.clusteringClasses;
-        }
-
-        List<String> partitionNames, clusteringNames;
-        if (componentNames != null) {
-            partitionNames = Arrays.asList(componentNames.get(0));
-            if (componentNames.size() > 1)
-                clusteringNames = componentNames.subList(1, componentNames.size());
-            else
-                clusteringNames = noNames;
-        } else {
-            partitionNames = this.partitionNames;
-            clusteringNames = this.clusteringNames;
-        }
-
-        List<Field> partitionFields, clusteringFields;
-        if (componentFields != null) {
-            partitionFields = Arrays.asList(componentFields.get(0));
-            if (componentFields.size() > 1)
-                clusteringFields = componentFields.subList(1, componentFields.size());
-            else
-                clusteringFields = noFields;
-        } else {
-            partitionFields = this.partitionFields;
-            clusteringFields = this.clusteringFields;
-        }
-
-        List<Method> partitionGetters, clusteringGetters;
-        if (componentGetters != null) {
-            partitionGetters = Arrays.asList(componentGetters.get(0));
-            if (componentGetters.size() > 1)
-                clusteringGetters = componentGetters.subList(1, componentGetters.size());
-            else
-                clusteringGetters = noAccessors;
-        } else {
-            partitionGetters = this.partitionGetters;
-            clusteringGetters = this.clusteringGetters;
-        }
-
-        List<Method> partitionSetters, clusteringSetters;
-        if (componentSetters != null) {
-            partitionSetters = Arrays.asList(componentSetters.get(0));
-            if (componentSetters.size() > 1)
-                clusteringSetters = componentSetters.subList(1, componentSetters.size());
-            else
-                clusteringSetters = noAccessors;
-        } else {
-            partitionSetters = this.partitionSetters;
-            clusteringSetters = this.clusteringSetters;
-        }
-
-        PartitionComponents partitionComponents = new PartitionComponents(partitionClasses, partitionNames,
-                partitionFields, partitionGetters, partitionSetters);
-
-        ClusteringComponents clusteringComponents = new ClusteringComponents(clusteringClasses, clusteringNames,
-                clusteringFields, clusteringGetters, clusteringSetters,clusteringOrders);
-
-        EmbeddedIdProperties embeddedIdProperties = new EmbeddedIdProperties(partitionComponents, clusteringComponents,
-                componentClasses, componentNames, componentFields, componentGetters, componentSetters, compTimeUUID);
-
-        pm.setEmbeddedIdProperties(embeddedIdProperties);
-    }
-
-    private void setTranscoder(PropertyMeta pm) {
-        if (transcoder != null) {
-            pm.setTranscoder(transcoder);
-        } else if (type != null) {
-            ObjectMapper objectMapper = new ObjectMapper();
-            switch (type) {
-                case ID:
-                case SIMPLE:
-                    pm.setTranscoder(new SimpleTranscoder(objectMapper));
-                    break;
-                case LIST:
-                    pm.setTranscoder(new ListTranscoder(objectMapper));
-                    break;
-                case SET:
-                    pm.setTranscoder(new SetTranscoder(objectMapper));
-                    break;
-                case MAP:
-                    pm.setTranscoder(new MapTranscoder(objectMapper));
-                    break;
-                case EMBEDDED_ID:
-                    pm.setTranscoder(new CompoundTranscoder(objectMapper));
-                    break;
-                default:
-                    break;
-            }
-        }
-    }
 
     public PropertyMetaTestBuilder<T, K, V> field(String field) {
         this.field = field;
@@ -271,38 +132,24 @@ public class PropertyMetaTestBuilder<T, K, V> {
         return this;
     }
 
-    public PropertyMetaTestBuilder<T, K, V> compTimeUUID(String... compTimeUUIDs) {
-        this.compTimeUUID = Arrays.asList(compTimeUUIDs);
+
+
+    public PropertyMetaTestBuilder<T, K, V> partitionKeyMetas(PropertyMeta... propertyMetas) {
+        for (PropertyMeta propertyMeta : propertyMetas) {
+            this.partitionBuilder.addPropertyMeta(propertyMeta);
+        }
         return this;
     }
 
-    public PropertyMetaTestBuilder<T, K, V> compClasses(Class<?>... componentClasses) {
-        this.componentClasses = Arrays.asList(componentClasses);
-        return this;
-    }
-
-    public PropertyMetaTestBuilder<T, K, V> compNames(String... componentNames) {
-        this.componentNames = Arrays.asList(componentNames);
-        return this;
-    }
-
-    public PropertyMetaTestBuilder<T, K, V> compFields(Field... componentFields) {
-        this.componentFields = Arrays.asList(componentFields);
-        return this;
-    }
-
-    public PropertyMetaTestBuilder<T, K, V> compGetters(Method... componentGetters) {
-        this.componentGetters = Arrays.asList(componentGetters);
-        return this;
-    }
-
-    public PropertyMetaTestBuilder<T, K, V> compSetters(Method... componentSetters) {
-        this.componentSetters = Arrays.asList(componentSetters);
+    public PropertyMetaTestBuilder<T, K, V> clusteringKeyMetas(PropertyMeta... propertyMetas) {
+        for (PropertyMeta propertyMeta : propertyMetas) {
+            this.clusteringBuilder.addPropertyMeta(propertyMeta);
+        }
         return this;
     }
 
     public PropertyMetaTestBuilder<T, K, V> clusteringOrders(ClusteringOrder...clusteringOrders) {
-        this.clusteringOrders= Arrays.asList(clusteringOrders);
+        this.clusteringBuilder.setClusteringOrders(Arrays.asList(clusteringOrders));
         return this;
     }
 
@@ -329,11 +176,6 @@ public class PropertyMetaTestBuilder<T, K, V> {
 
     public PropertyMetaTestBuilder<T, K, V> consistencyLevels(Pair<ConsistencyLevel, ConsistencyLevel> consistencyLevels) {
         this.consistencyLevels = consistencyLevels;
-        return this;
-    }
-
-    public PropertyMetaTestBuilder<T, K, V> transcoder(DataTranscoder transcoder) {
-        this.transcoder = transcoder;
         return this;
     }
 

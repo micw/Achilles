@@ -129,7 +129,7 @@ public class PreparedStatementGeneratorTest {
 
     @Test
     public void should_prepare_insert_ps_with_clustered_id_and_options() throws Exception {
-        PropertyMeta idMeta = completeBean(Void.class, Long.class).field("id").compNames("id", "a", "b")
+        PropertyMeta idMeta = completeBean(Void.class, Long.class).field("id")
                 .type(PropertyType.EMBEDDED_ID).build();
 
         PropertyMeta nameMeta = completeBean(Void.class, String.class).field("name").type(PropertyType.SIMPLE).build();
@@ -169,8 +169,7 @@ public class PreparedStatementGeneratorTest {
     @Test
     public void should_prepare_select_field_ps_for_clustered_id() throws Exception {
 
-        PropertyMeta idMeta = completeBean(Void.class, Long.class).field("id").type(PropertyType.EMBEDDED_ID)
-                .compNames("id", "a", "b").build();
+        PropertyMeta idMeta = completeBean(Void.class, Long.class).field("id").type(PropertyType.EMBEDDED_ID).build();
 
         EntityMeta meta = new EntityMeta();
         meta.setTableName("table");
@@ -212,8 +211,7 @@ public class PreparedStatementGeneratorTest {
     @Test
     public void should_prepare_update_fields_with_clustered_id_ps() throws Exception {
 
-        PropertyMeta idMeta = completeBean(Void.class, Long.class).field("id").compNames("id", "a", "b")
-                .type(PropertyType.EMBEDDED_ID).build();
+        PropertyMeta idMeta = completeBean(Void.class, Long.class).field("id").type(PropertyType.EMBEDDED_ID).build();
 
         PropertyMeta nameMeta = completeBean(Void.class, String.class).field("name").type(PropertyType.SIMPLE).build();
 
@@ -273,8 +271,7 @@ public class PreparedStatementGeneratorTest {
     @Test
     public void should_prepare_select_eager_ps_with_clustered_key() throws Exception {
 
-        PropertyMeta idMeta = completeBean(Void.class, Long.class).field("id").compNames("id", "a", "b")
-                .type(PropertyType.EMBEDDED_ID).build();
+        PropertyMeta idMeta = completeBean(Void.class, Long.class).field("id").type(PropertyType.EMBEDDED_ID).build();
 
         PropertyMeta nameMeta = completeBean(Void.class, String.class).field("name").type(PropertyType.SIMPLE).build();
 
@@ -316,8 +313,7 @@ public class PreparedStatementGeneratorTest {
     @Test
     public void should_remove_entity_having_clustered_key() throws Exception {
 
-        PropertyMeta idMeta = completeBean(Void.class, Long.class).field("id").compNames("id", "a", "b")
-                .type(PropertyType.EMBEDDED_ID).build();
+        PropertyMeta idMeta = completeBean(Void.class, Long.class).field("id").type(PropertyType.EMBEDDED_ID).build();
 
         PropertyMeta nameMeta = completeBean(Void.class, String.class).field("name").type(PropertyType.SIMPLE).build();
 

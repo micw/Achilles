@@ -37,6 +37,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import javax.validation.constraints.NotNull;
+
+import info.archinnov.achilles.internal.metadata.transcoding.codec.ListCodec;
+import info.archinnov.achilles.internal.metadata.transcoding.codec.MapCodec;
+import info.archinnov.achilles.internal.metadata.transcoding.codec.SetCodec;
+import info.archinnov.achilles.internal.metadata.transcoding.codec.SimpleCodec;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,7 +52,6 @@ import info.archinnov.achilles.annotations.EmptyCollectionIfNull;
 import info.archinnov.achilles.annotations.Id;
 import info.archinnov.achilles.annotations.Index;
 import info.archinnov.achilles.annotations.TimeUUID;
-import info.archinnov.achilles.exception.AchillesBeanMappingException;
 import info.archinnov.achilles.interceptor.Interceptor;
 import info.archinnov.achilles.internal.metadata.holder.CounterProperties;
 import info.archinnov.achilles.internal.metadata.holder.EmbeddedIdProperties;
@@ -108,10 +112,10 @@ public class PropertyParser {
         allowedTypes.add(UUID.class);
     }
 
-    private EmbeddedIdParser compoundKeyParser = new EmbeddedIdParser();
     private EntityIntrospector entityIntrospector = new EntityIntrospector();
     private PropertyParsingValidator validator = new PropertyParsingValidator();
     private PropertyFilter filter = new PropertyFilter();
+    private CodecFactory codecFactory = new CodecFactory();
 
     public static String getIndexName(Field field) {
         log.debug("Check @Index annotation on field {} of class {}", field.getName(), field.getDeclaringClass().getCanonicalName());
@@ -241,16 +245,12 @@ public class PropertyParser {
 
         Validator.validateInstantiable(embeddedIdClass);
 
-        EmbeddedId embeddedId = field.getAnnotation(EmbeddedId.class);
-        String propertyName = StringUtils.isNotBlank(embeddedId.name()) ? embeddedId.name() : context
-                .getCurrentPropertyName();
-
         Method[] accessors = entityIntrospector.findAccessors(entityClass, field);
         PropertyType type = EMBEDDED_ID;
 
-        EmbeddedIdProperties embeddedIdProperties = extractEmbeddedIdProperties(embeddedIdClass);
+        EmbeddedIdProperties embeddedIdProperties = extractEmbeddedIdProperties(embeddedIdClass, context);
         PropertyMeta propertyMeta = factory().objectMapper(context.getCurrentObjectMapper()).type(type)
-                .propertyName(propertyName).embeddedIdProperties(embeddedIdProperties)
+                .propertyName(context.getCurrentPropertyName()).embeddedIdProperties(embeddedIdProperties)
                 .entityClassName(context.getCurrentEntityClass().getCanonicalName()).accessors(accessors).field(field)
                 .consistencyLevels(context.getCurrentConsistencyLevels()).build(Void.class, embeddedIdClass);
 
@@ -269,13 +269,15 @@ public class PropertyParser {
         boolean timeUUID = isTimeUUID(context, field);
 
         Method[] accessors = entityIntrospector.findAccessors(entityClass, field);
+        final SimpleCodec simpleCodec = codecFactory.parseSimpleField(context);
+
         PropertyType type = SIMPLE;
 
         PropertyMeta propertyMeta = factory().objectMapper(context.getCurrentObjectMapper()).type(type)
                 .propertyName(context.getCurrentPropertyName())
                 .entityClassName(context.getCurrentEntityClass().getCanonicalName()).accessors(accessors)
                 .consistencyLevels(context.getCurrentConsistencyLevels()).field(field).timeuuid(timeUUID)
-                .staticColumn(staticColumn)
+                .staticColumn(staticColumn).simpleCodec(simpleCodec)
                 .build(Void.class, field.getType());
 
         log.trace("Built simple property meta for property {} of entity class {} : {}", propertyMeta.getPropertyName(),
@@ -328,6 +330,8 @@ public class PropertyParser {
         valueClass = TypeParser.inferValueClassForListOrSet(genericType, entityClass);
 
         Method[] accessors = entityIntrospector.findAccessors(entityClass, field);
+        final ListCodec listCodec = codecFactory.parseListField(context);
+
         PropertyType type = LIST;
 
         PropertyMeta listMeta = factory().objectMapper(context.getCurrentObjectMapper()).type(type)
@@ -335,6 +339,7 @@ public class PropertyParser {
                 .entityClassName(context.getCurrentEntityClass().getCanonicalName())
                 .consistencyLevels(context.getCurrentConsistencyLevels()).accessors(accessors).field(field)
                 .timeuuid(timeUUID).emptyCollectionAndMapIfNull(emptyCollectionIfNull).staticColumn(staticColumn)
+                .listCodec(listCodec)
                 .build(Void.class, valueClass);
 
         log.trace("Built list property meta for property {} of entity class {} : {}", listMeta.getPropertyName(),
@@ -358,6 +363,7 @@ public class PropertyParser {
 
         valueClass = TypeParser.inferValueClassForListOrSet(genericType, entityClass);
         Method[] accessors = entityIntrospector.findAccessors(entityClass, field);
+        final SetCodec setCodec = codecFactory.parseSetField(context);
         PropertyType type = SET;
 
         PropertyMeta setMeta = factory().objectMapper(context.getCurrentObjectMapper()).type(type)
@@ -365,6 +371,7 @@ public class PropertyParser {
                 .entityClassName(context.getCurrentEntityClass().getCanonicalName())
                 .consistencyLevels(context.getCurrentConsistencyLevels()).accessors(accessors).field(field)
                 .timeuuid(timeUUID).emptyCollectionAndMapIfNull(emptyCollectionIfNull).staticColumn(staticColumn)
+                .setCodec(setCodec)
                 .build(Void.class, valueClass);
 
         log.trace("Built set property meta for property {} of  entity class {} : {}", setMeta.getPropertyName(),
@@ -389,6 +396,7 @@ public class PropertyParser {
         Class<V> valueClass = types.right;
 
         Method[] accessors = entityIntrospector.findAccessors(entityClass, field);
+        final MapCodec mapCodec = codecFactory.parseMapField(context);
         PropertyType type = MAP;
 
         PropertyMeta mapMeta = factory().objectMapper(context.getCurrentObjectMapper()).type(type)
@@ -396,6 +404,7 @@ public class PropertyParser {
                 .entityClassName(context.getCurrentEntityClass().getCanonicalName())
                 .consistencyLevels(context.getCurrentConsistencyLevels()).accessors(accessors).field(field)
                 .timeuuid(timeUUID).emptyCollectionAndMapIfNull(emptyCollectionIfNull).staticColumn(staticColumn)
+                .mapCodec(mapCodec)
                 .build(keyClass, valueClass);
 
         log.trace("Built map property meta for property {} of entity class {} : {}", mapMeta.getPropertyName(), context
@@ -405,7 +414,7 @@ public class PropertyParser {
 
     }
 
-    private void inferPropertyName(PropertyParsingContext context) {
+    void inferPropertyName(PropertyParsingContext context) {
         log.trace("Inferring property name for property {}", context.getCurrentPropertyName());
 
         String propertyName;
@@ -419,9 +428,9 @@ public class PropertyParser {
         context.setCurrentPropertyName(propertyName);
     }
 
-    private EmbeddedIdProperties extractEmbeddedIdProperties(Class<?> keyClass) {
+    private EmbeddedIdProperties extractEmbeddedIdProperties(Class<?> keyClass, PropertyParsingContext context) {
         log.trace("Parsing compound key class", keyClass.getCanonicalName());
-        EmbeddedIdProperties embeddedIdProperties = compoundKeyParser.parseEmbeddedId(keyClass);
+        EmbeddedIdProperties embeddedIdProperties = new EmbeddedIdParser(context).parseEmbeddedId(keyClass, this);
         log.trace("Built compound key properties", embeddedIdProperties);
         return embeddedIdProperties;
     }

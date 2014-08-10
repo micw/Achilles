@@ -29,12 +29,10 @@ import static com.datastax.driver.core.querybuilder.QueryBuilder.setIdx;
 import static com.datastax.driver.core.querybuilder.Update.Assignments;
 import static java.util.Map.Entry;
 import static org.apache.commons.collections.CollectionUtils.isNotEmpty;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+
+import java.util.*;
+
+import com.google.common.collect.FluentIterable;
 import org.apache.commons.collections.MapUtils;
 import com.datastax.driver.core.querybuilder.Update;
 import info.archinnov.achilles.internal.metadata.holder.PropertyMeta;
@@ -64,7 +62,7 @@ public class DirtyCheckChangeSet {
 
     public ElementAtIndex getEncodedListChangeAtIndex() {
         if (listChangeAtIndex != null && listChangeAtIndex.getElement() != null) {
-            Object encodedElement = propertyMeta.encode(listChangeAtIndex.getElement());
+            Object encodedElement = propertyMeta.encode(listChangeAtIndex.getElementAsList()).get(0);
             return new ElementAtIndex(listChangeAtIndex.getIndex(), encodedElement);
         }
         return listChangeAtIndex;
@@ -79,13 +77,7 @@ public class DirtyCheckChangeSet {
 
     public Map<Object, Object> getEncodedMapChanges() {
         if (MapUtils.isNotEmpty(mapChanges)) {
-            Map<Object, Object> encodedMapChanges = new HashMap<>();
-            for (Entry<Object, Object> entry : mapChanges.entrySet()) {
-                Object encodedKey = propertyMeta.encodeKey(entry.getKey());
-                Object encodedValue = propertyMeta.encode(entry.getValue());
-                encodedMapChanges.put(encodedKey, encodedValue);
-            }
-            return encodedMapChanges;
+            return propertyMeta.encode(mapChanges);
         }
         return mapChanges;
     }
@@ -200,7 +192,7 @@ public class DirtyCheckChangeSet {
     public Pair<Assignments, Object[]> generateUpdateForRemovedKey(Update.Conditions conditions, boolean preparedStatement) {
         String propertyName = propertyMeta.getPropertyName();
         Assignments assignments;
-        Object encodedKey = propertyMeta.encodeKey(mapChanges.keySet().iterator().next());
+        final Object encodedKey = FluentIterable.from(propertyMeta.encode(mapChanges).keySet()).first().orNull();
         if (preparedStatement) {
             assignments = conditions.with(put(propertyName, bindMarker("key"), bindMarker("nullValue")));
         } else {
@@ -321,6 +313,10 @@ public class DirtyCheckChangeSet {
 
         public Object getElement() {
             return element;
+        }
+
+        public List<Object> getElementAsList() {
+            return Arrays.asList(element);
         }
 
         @Override

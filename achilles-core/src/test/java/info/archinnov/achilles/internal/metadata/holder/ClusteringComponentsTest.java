@@ -18,14 +18,20 @@ package info.archinnov.achilles.internal.metadata.holder;
 
 import java.util.Arrays;
 import java.util.UUID;
+
+import info.archinnov.achilles.schemabuilder.Create;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
 import info.archinnov.achilles.exception.AchillesException;
 import info.archinnov.achilles.internal.metadata.holder.ClusteringComponents;
 import info.archinnov.achilles.test.mapping.entity.UserBean;
+
+import static info.archinnov.achilles.schemabuilder.Create.Options.ClusteringOrder;
 
 @RunWith(MockitoJUnitRunner.class)
 public class ClusteringComponentsTest {
@@ -35,16 +41,36 @@ public class ClusteringComponentsTest {
 
 	private ClusteringComponents clusteringComponents;
 
-	@Test
-	public void should_validate_clustering_components() throws Exception {
-		clusteringComponents = new ClusteringComponents(Arrays.<Class<?>> asList(String.class, Integer.class), null,null,null, null, null);
+    @Mock
+    private PropertyMeta meta1;
+    @Mock
+    private PropertyMeta meta2;
+    @Mock
+    private PropertyMeta meta3;
+    @Mock
+    private PropertyMeta meta4;
 
+    @Mock
+    private ClusteringOrder order1;
+    @Mock
+    private ClusteringOrder order2;
+    @Mock
+    private ClusteringOrder order3;
+    @Mock
+    private ClusteringOrder order4;
+
+    @Before
+    public void setUp() {
+        clusteringComponents = new ClusteringComponents(Arrays.asList(meta1, meta2), Arrays.asList(order1, order2));
+    }
+
+    @Test
+	public void should_validate_clustering_components() throws Exception {
 		clusteringComponents.validateClusteringComponents("entityClass", "name", 13);
 	}
 
 	@Test
 	public void should_exception_when_no_clustering_component_provided() throws Exception {
-		clusteringComponents = new ClusteringComponents(Arrays.<Class<?>> asList(String.class, Integer.class), null,null,null, null,null);
 		exception.expect(AchillesException.class);
 		exception.expectMessage("There should be at least one clustering key provided for querying on entity 'entityClass'");
 
@@ -53,9 +79,6 @@ public class ClusteringComponentsTest {
 
 	@Test
 	public void should_exception_when_wrong_type_provided_for_clustering_components() throws Exception {
-		clusteringComponents = new ClusteringComponents(Arrays.<Class<?>> asList(String.class, Integer.class,UUID.class), null,
-                null, null,null,null);
-
 		exception.expect(AchillesException.class);
 		exception.expectMessage("The type 'java.lang.Long' of clustering key '15' for querying on entity 'entityClass' is not valid. It should be 'java.lang.Integer'");
 
@@ -64,8 +87,6 @@ public class ClusteringComponentsTest {
 
 	@Test
 	public void should_exception_when_too_many_values_for_clustering_components() throws Exception {
-		clusteringComponents = new ClusteringComponents(Arrays.<Class<?>> asList(String.class, Integer.class,UUID.class), null,null, null, null,null);
-
 		exception.expect(AchillesException.class);
 		exception.expectMessage("There should be at most 3 value(s) of clustering component(s) provided for querying on entity 'entityClass'");
 
@@ -74,8 +95,6 @@ public class ClusteringComponentsTest {
 
 	@Test
 	public void should_exception_when_null_value() throws Exception {
-		clusteringComponents = new ClusteringComponents(Arrays.<Class<?>> asList(String.class, Integer.class,UUID.class),null, null, null, null,null);
-
 		exception.expect(AchillesException.class);
 		exception.expectMessage("The '2th' clustering key should not be null");
 

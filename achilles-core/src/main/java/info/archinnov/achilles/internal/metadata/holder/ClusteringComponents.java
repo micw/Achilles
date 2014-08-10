@@ -29,8 +29,8 @@ public class ClusteringComponents extends AbstractComponentProperties {
 
     private List<ClusteringOrder> clusteringOrders;
 
-    public ClusteringComponents(List<Class<?>> componentClasses, List<String> componentNames, List<Field> componentFields, List<Method> componentGetters, List<Method> componentSetters, List<ClusteringOrder> clusteringOrders) {
-        super(componentClasses, componentNames, componentFields, componentGetters, componentSetters);
+    public ClusteringComponents(List<PropertyMeta> clusteringKeyMetas, List<ClusteringOrder> clusteringOrders) {
+        super(clusteringKeyMetas);
         this.clusteringOrders = clusteringOrders;
     }
 
@@ -39,6 +39,7 @@ public class ClusteringComponents extends AbstractComponentProperties {
         Validator.validateTrue(ArrayUtils.isNotEmpty(clusteringComponentsArray), "There should be at least one clustering key provided for querying on entity '%s'", className);
 
         final List<Object> clusteringComponents = Arrays.asList(clusteringComponentsArray);
+        final List<Class<?>> componentClasses = getComponentClasses();
 
         int maxClusteringCount = componentClasses.size();
 
@@ -58,6 +59,7 @@ public class ClusteringComponents extends AbstractComponentProperties {
     }
 
     void validateClusteringComponentsIn(String className, Object... clusteringComponentsInArray) {
+        final List<Class<?>> componentClasses = getComponentClasses();
 
         Validator.validateTrue(ArrayUtils.isNotEmpty(clusteringComponentsInArray), "There should be at least one clustering key IN provided for querying on entity '%s'", className);
 
@@ -76,33 +78,14 @@ public class ClusteringComponents extends AbstractComponentProperties {
     }
 
     String getOrderingComponent() {
-        return isClustered() ? componentNames.get(0) : null;
+        return isClustered() ? getComponentNames().get(0) : null;
     }
 
     boolean isClustered() {
-        return componentClasses.size() > 0;
+        return getComponentClasses().size() > 0;
     }
 
     public List<ClusteringOrder> getClusteringOrders() {
         return clusteringOrders;
-    }
-
-    private int validateNoHoleAndReturnLastNonNullIndex(List<Object> components) {
-        boolean nullFlag = false;
-        int lastNotNullIndex = 0;
-        for (Object component : components) {
-            if (component != null) {
-                if (nullFlag) {
-                    throw new AchillesException(
-                            "There should not be any null value between two non-null components of an @EmbeddedId");
-                }
-                lastNotNullIndex++;
-            } else {
-                nullFlag = true;
-            }
-        }
-        lastNotNullIndex--;
-
-        return lastNotNullIndex;
     }
 }
