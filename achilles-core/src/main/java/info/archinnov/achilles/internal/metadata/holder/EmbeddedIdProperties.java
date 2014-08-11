@@ -93,7 +93,7 @@ public class EmbeddedIdProperties extends AbstractComponentProperties {
         Validator.validateTrue(components.size() == this.propertyMetas.size(), "There should be exactly '%s' Cassandra columns to decode into an '%s' instance", this.propertyMetas.size(), newInstance.getClass().getCanonicalName());
         for (int i = 0; i < propertyMetas.size(); i++) {
             final PropertyMeta componentMeta = propertyMetas.get(i);
-            final Object decodedValue = componentMeta.decodeFromCassandra(components.get(i));
+            final Object decodedValue = componentMeta.forTranscoding().decodeFromCassandra(components.get(i));
             componentMeta.setValueToField(newInstance,decodedValue);
         }
         return newInstance;
@@ -104,11 +104,11 @@ public class EmbeddedIdProperties extends AbstractComponentProperties {
         List<Object> encoded = new ArrayList<>();
         if (onlyStaticColumns) {
             for (PropertyMeta partitionKeyMeta : partitionComponents.propertyMetas) {
-                encoded.add(partitionKeyMeta.getAndEncodeValueForCassandra(compoundKey));
+                encoded.add(partitionKeyMeta.forTranscoding().getAndEncodeValueForCassandra(compoundKey));
             }
         } else {
             for (PropertyMeta partitionKeyMeta : propertyMetas) {
-                encoded.add(partitionKeyMeta.getAndEncodeValueForCassandra(compoundKey));
+                encoded.add(partitionKeyMeta.forTranscoding().getAndEncodeValueForCassandra(compoundKey));
             }
         }
         return encoded;
@@ -144,7 +144,7 @@ public class EmbeddedIdProperties extends AbstractComponentProperties {
         List<Object> encoded = new ArrayList<>();
         for (int i = 0; i < propertyMetas.size(); i++) {
             final PropertyMeta componentMeta = propertyMetas.get(i);
-            encoded.add(componentMeta.encodeToCassandra(rawPartitionComponents.get(i)));
+            encoded.add(componentMeta.forTranscoding().encodeToCassandra(rawPartitionComponents.get(i)));
         }
         return encoded;
     }
@@ -152,7 +152,7 @@ public class EmbeddedIdProperties extends AbstractComponentProperties {
     private List<Object> encodeLastComponent(List<Object> rawPartitionComponentsIN, PropertyMeta lastComponentMeta) {
         List<Object> encoded = new ArrayList<>();
         for (Object rawPartitionComponentIN : rawPartitionComponentsIN) {
-            encoded.add(lastComponentMeta.encode(rawPartitionComponentIN));
+            encoded.add(lastComponentMeta.forTranscoding().encodeToCassandra(rawPartitionComponentIN));
         }
         return encoded;
     }
@@ -170,7 +170,7 @@ public class EmbeddedIdProperties extends AbstractComponentProperties {
         return clusteringComponents.getOrderingComponent();
     }
 
-    public List<ClusteringOrder> getCluseringOrders() {
+    public List<ClusteringOrder> getClusteringOrders() {
         return clusteringComponents.getClusteringOrders();
     }
 
@@ -270,7 +270,8 @@ public class EmbeddedIdProperties extends AbstractComponentProperties {
         return insert;
     }
 
-    Update.Where prepareCommonWhereClauseForUpdate(Update.Assignments assignments, boolean onlyStaticColumns, Update.Where where) {
+    Update.Where prepareCommonWhereClauseForUpdate(Update.Assignments assignments, boolean onlyStaticColumns) {
+        Update.Where where = null;
         int i = 0;
         if (onlyStaticColumns) {
             for (String partitionKeys : getPartitionComponentNames()) {
@@ -328,7 +329,7 @@ public class EmbeddedIdProperties extends AbstractComponentProperties {
     private void validatePartitionComponent(TableMetadata tableMetaData, PropertyMeta partitionMeta) {
         final String tableName = tableMetaData.getName();
         final String cql3PropertyName = partitionMeta.getCQL3PropertyName();
-        final Class<?> columnJavaType = partitionMeta.getValueClassForTableCreationAndValidation();
+        final Class<?> columnJavaType = partitionMeta.forTableCreation().getValueClassForTableCreationAndValidation();
         log.debug("Validate existing partition key component {} from table {} against type {}", cql3PropertyName, tableName, columnJavaType.getCanonicalName());
 
         // no ALTER's for partition components
@@ -343,7 +344,7 @@ public class EmbeddedIdProperties extends AbstractComponentProperties {
     private void validateClusteringComponent(TableMetadata tableMetaData, PropertyMeta clusteringMeta) {
         final String tableName = tableMetaData.getName();
         final String cql3PropertyName = clusteringMeta.getCQL3PropertyName();
-        final Class<?> columnJavaType = clusteringMeta.getValueClassForTableCreationAndValidation();
+        final Class<?> columnJavaType = clusteringMeta.forTableCreation().getValueClassForTableCreationAndValidation();
         log.debug("Validate existing clustering column {} from table {} against type {}", cql3PropertyName,tableName, columnJavaType);
 
         // no ALTER's for clustering components
@@ -377,7 +378,7 @@ public class EmbeddedIdProperties extends AbstractComponentProperties {
     void addPartitionKeys(Create createTable) {
         for (PropertyMeta partitionMeta: partitionComponents.propertyMetas) {
             String cql3PropertyName = partitionMeta.getCQL3PropertyName();
-            Class<?> javaType = partitionMeta.getValueClassForTableCreationAndValidation();
+            Class<?> javaType = partitionMeta.forTableCreation().getValueClassForTableCreationAndValidation();
             createTable.addPartitionKey(cql3PropertyName, toCQLDataType(javaType));
         }
     }
@@ -385,7 +386,7 @@ public class EmbeddedIdProperties extends AbstractComponentProperties {
     void addClusteringKeys(Create createTable) {
         for (PropertyMeta clusteringMeta: clusteringComponents.propertyMetas) {
             String cql3PropertyName = clusteringMeta.getCQL3PropertyName();
-            Class<?> javaType = clusteringMeta.getValueClassForTableCreationAndValidation();
+            Class<?> javaType = clusteringMeta.forTableCreation().getValueClassForTableCreationAndValidation();
             createTable.addClusteringKey(cql3PropertyName, toCQLDataType(javaType));
         }
     }

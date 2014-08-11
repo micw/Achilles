@@ -43,7 +43,6 @@ import org.mockito.runners.MockitoJUnitRunner;
 import org.powermock.reflect.Whitebox;
 import com.datastax.driver.core.RegularStatement;
 import com.datastax.driver.core.Row;
-import com.datastax.driver.core.querybuilder.QueryBuilder;
 import info.archinnov.achilles.interceptor.Event;
 import info.archinnov.achilles.internal.context.DaoContext;
 import info.archinnov.achilles.internal.context.PersistenceContext;
@@ -54,7 +53,7 @@ import info.archinnov.achilles.internal.metadata.holder.PropertyType;
 import info.archinnov.achilles.internal.persistence.operations.EntityMapper;
 import info.archinnov.achilles.internal.persistence.operations.EntityProxifier;
 import info.archinnov.achilles.internal.statement.wrapper.AbstractStatementWrapper;
-import info.archinnov.achilles.test.builders.PropertyMetaTestBuilder;
+import info.archinnov.achilles.internal.metadata.holder.PropertyMetaTestBuilder;
 import info.archinnov.achilles.test.mapping.entity.CompleteBean;
 
 @RunWith(MockitoJUnitRunner.class)

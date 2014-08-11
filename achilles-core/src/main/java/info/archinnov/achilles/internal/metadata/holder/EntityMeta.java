@@ -117,47 +117,47 @@ public class EntityMeta {
 
 
     public void validatePartitionComponents(Object...partitionComponents) {
-        idMeta.validatePartitionComponents(partitionComponents);
+        idMeta.forSliceQuery().validatePartitionComponents(partitionComponents);
     }
 
     public void validatePartitionComponentsIn(Object...partitionComponents) {
-        idMeta.validatePartitionComponentsIn(partitionComponents);
+        idMeta.forSliceQuery().validatePartitionComponentsIn(partitionComponents);
     }
 
     public void validateClusteringComponents(Object...clusteringComponents) {
-        idMeta.validateClusteringComponents(clusteringComponents);
+        idMeta.forSliceQuery().validateClusteringComponents(clusteringComponents);
     }
 
     public void validateClusteringComponentsIn(Object...clusteringComponents) {
-        idMeta.validateClusteringComponentsIn(clusteringComponents);
+        idMeta.forSliceQuery().validateClusteringComponentsIn(clusteringComponents);
     }
 
     public List<String> getPartitionKeysName(int size) {
-        return idMeta.getPartitionKeysName(size);
+        return idMeta.forSliceQuery().getPartitionKeysName(size);
     }
 
     public String getLastPartitionKeyName() {
-        return idMeta.getLastPartitionKeyName();
+        return idMeta.forSliceQuery().getLastPartitionKeyName();
     }
 
     public List<String> getClusteringKeysName(int size) {
-        return idMeta.getClusteringKeysName(size);
+        return idMeta.forSliceQuery().getClusteringKeysName(size);
     }
 
     public String getLastClusteringKeyName() {
-        return idMeta.getLastClusteringKeyName();
+        return idMeta.forSliceQuery().getLastClusteringKeyName();
     }
 
     public int getPartitionKeysSize() {
-        return idMeta.getPartitionKeysSize();
+        return idMeta.forSliceQuery().getPartitionKeysSize();
     }
 
     public int getClusteringKeysSize() {
-        return idMeta.getClusteringKeysSize();
+        return idMeta.forSliceQuery().getClusteringKeysSize();
     }
 
-    public List<Create.Options.ClusteringOrder> getClusteringOrders() {
-        return idMeta.getClusteringOrders();
+    public Create.Options.ClusteringOrder getClusteringOrderForSliceQuery() {
+        return idMeta.forSliceQuery().getClusteringOrder();
     }
 
     @SuppressWarnings("unchecked")
@@ -166,7 +166,7 @@ public class EntityMeta {
     }
 
     public boolean hasEmbeddedId() {
-        return idMeta.isEmbeddedId();
+        return idMeta.structure().isEmbeddedId();
     }
 
     // ////////// Getters & Setters
@@ -408,7 +408,7 @@ public class EntityMeta {
         Object encodedValue = rawValue;
         if (rawValue != null) {
             final PropertyMeta propertyMeta = findPropertyMetaByCQL3Name(columnName);
-            encodedValue = propertyMeta.encode(rawValue);
+            encodedValue = propertyMeta.forTranscoding().encodeToCassandra(rawValue);
         }
         return encodedValue;
     }
@@ -449,7 +449,7 @@ public class EntityMeta {
     }
 
     public boolean isEmbeddedId() {
-        return idMeta.isEmbeddedId();
+        return idMeta.structure().isEmbeddedId();
     }
 
 

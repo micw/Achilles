@@ -15,44 +15,19 @@
  */
 package info.archinnov.achilles.internal.metadata.holder;
 
-import static com.datastax.driver.core.querybuilder.QueryBuilder.bindMarker;
-import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
-import static info.archinnov.achilles.internal.cql.TypeMapper.toCQLDataType;
-import static info.archinnov.achilles.schemabuilder.Create.Options.ClusteringOrder;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
-import com.datastax.driver.core.RegularStatement;
-import com.datastax.driver.core.Row;
-import com.datastax.driver.core.TableMetadata;
-import com.datastax.driver.core.querybuilder.Delete;
-import com.datastax.driver.core.querybuilder.Insert;
-import com.datastax.driver.core.querybuilder.Select;
-import com.datastax.driver.core.querybuilder.Update;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Optional;
-import com.google.common.collect.Sets;
 import info.archinnov.achilles.internal.metadata.transcoding.codec.*;
-import info.archinnov.achilles.internal.validation.Validator;
 import info.archinnov.achilles.json.DefaultJacksonMapper;
-import info.archinnov.achilles.schemabuilder.Create;
-import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
-import com.google.common.collect.FluentIterable;
-import info.archinnov.achilles.exception.AchillesException;
-import info.archinnov.achilles.internal.persistence.operations.InternalCounterImpl;
 import info.archinnov.achilles.internal.reflection.ReflectionInvoker;
 import info.archinnov.achilles.type.ConsistencyLevel;
 import info.archinnov.achilles.type.Pair;
@@ -60,8 +35,8 @@ import info.archinnov.achilles.type.Pair;
 public class PropertyMeta {
 
     private static final Logger log = LoggerFactory.getLogger(PropertyMeta.class);
-    private ObjectMapper defaultJacksonMapper = DefaultJacksonMapper.INSTANCE.get();
 
+    private ReflectionInvoker invoker = new ReflectionInvoker();
     public static final Predicate<PropertyMeta> STATIC_COLUMN_FILTER = new Predicate<PropertyMeta>() {
         @Override
         public boolean apply(PropertyMeta pm) {
@@ -72,352 +47,79 @@ public class PropertyMeta {
     public static final Predicate<PropertyMeta> COUNTER_COLUMN_FILTER = new Predicate<PropertyMeta>() {
         @Override
         public boolean apply(PropertyMeta pm) {
-            return pm.isCounter();
+            return pm.structure().isCounter();
         }
     };
 
-    private PropertyType type;
-    private String propertyName;
-    private String entityClassName;
-    private Class<?> keyClass;
-    private Class<?> valueClass;
-    private Method getter;
-    private Method setter;
-    private Field field;
-    private CounterProperties counterProperties;
-    private EmbeddedIdProperties embeddedIdProperties;
-    private IndexProperties indexProperties;
-    private Pair<ConsistencyLevel, ConsistencyLevel> consistencyLevels;
-    private boolean timeUUID = false;
-    private boolean emptyCollectionAndMapIfNull = false;
-    private boolean staticColumn = false;
-    private ReflectionInvoker invoker = new ReflectionInvoker();
-    protected SimpleCodec simpleCodec;
-    protected ListCodec listCodec;
-    protected SetCodec setCodec;
-    protected MapCodec mapCodec;
+    ObjectMapper defaultJacksonMapper = DefaultJacksonMapper.INSTANCE.get();
+
+    PropertyType type;
+    String propertyName;
+    String entityClassName;
+    Class<?> keyClass;
+    Class<?> valueClass;
+    Method getter;
+    Method setter;
+    Field field;
+    CounterProperties counterProperties;
+    EmbeddedIdProperties embeddedIdProperties;
+    IndexProperties indexProperties;
+    Pair<ConsistencyLevel, ConsistencyLevel> consistencyLevels;
+    boolean timeUUID = false;
+    boolean emptyCollectionAndMapIfNull = false;
+    boolean staticColumn = false;
+    SimpleCodec simpleCodec;
+    ListCodec listCodec;
+    SetCodec setCodec;
+    MapCodec mapCodec;
 
     // CQL3 Extraction
-    public List<Object> extractRawCompoundPrimaryComponentsFromRow(Row row) {
-        Validator.validateNotNull(embeddedIdProperties, "Cannot extract raw compound primary keys from CQL3 row because entity '%s' does not have a compound primary key",entityClassName);
-        return embeddedIdProperties.extractRawCompoundPrimaryComponentsFromRow(row);
-    }
-
-    public void validateExtractedCompoundPrimaryComponents(List<Object> rawComponents, Class<?> primaryKeyClass) {
-        Validator.validateNotNull(embeddedIdProperties, "Cannot validate raw compound primary keys from CQL3 row because entity '%s' does not have a compound primary key",entityClassName);
-        embeddedIdProperties.validateExtractedCompoundPrimaryComponents(rawComponents, primaryKeyClass);
+    public PropertyMetaRowExtractor forRowExtraction() {
+        return new PropertyMetaRowExtractor(this);
     }
 
     // CQL3 statements generation
-    public RegularStatement prepareWhereClauseForDelete(boolean onlyStaticColumns, Delete mainFrom) {
-        if (isEmbeddedId()) {
-            return embeddedIdProperties.prepareWhereClauseForDelete(onlyStaticColumns, mainFrom);
-        } else {
-            return mainFrom.where(eq(getCQL3PropertyName(), bindMarker(getCQL3PropertyName())));
-        }
-    }
-
-    public RegularStatement prepareWhereClauseForSelect(Optional<PropertyMeta> pmO, Select from) {
-        if (isEmbeddedId()) {
-            return embeddedIdProperties.prepareWhereClauseForSelect(pmO, from);
-        } else {
-            return from.where(eq(getCQL3PropertyName(), bindMarker(getCQL3PropertyName())));
-        }
-    }
-
-    public Insert prepareInsertPrimaryKey(Insert insert) {
-        if (isEmbeddedId()) {
-            return embeddedIdProperties.prepareInsertPrimaryKey(insert);
-        } else {
-            return insert.value(getCQL3PropertyName(), bindMarker(getCQL3PropertyName()));
-        }
-    }
-
-    public Update.Where prepareCommonWhereClauseForUpdate(Update.Assignments assignments, boolean onlyStaticColumns, Update.Where where) {
-        Validator.validateNotNull(embeddedIdProperties, "Cannot prepare common WHERE clause for update because entity '%s' does not have a compound primary key",entityClassName);
-        return embeddedIdProperties.prepareCommonWhereClauseForUpdate(assignments, onlyStaticColumns, where);
-    }
-
-    public Pair<Update.Where, Object[]> generateWhereClauseForUpdate(Object entity, PropertyMeta pm, Update.Assignments update) {
-        Object primaryKey = getPrimaryKey(entity);
-        if (isEmbeddedId()) {
-            return embeddedIdProperties.generateWhereClauseForUpdate(primaryKey, pm, update);
-        } else {
-            Object id = encodeToCassandra(primaryKey);
-            Update.Where where = update.where(eq(getCQL3PropertyName(), id));
-            Object[] boundValues = new Object[] { id };
-            return Pair.create(where, boundValues);
-        }
-    }
-
-    public Select.Selection prepareSelectField(Select.Selection select) {
-        if (isEmbeddedId()) {
-            for (String component : embeddedIdProperties.getCQL3ComponentNames()) {
-                select = select.column(component);
-            }
-            return select;
-        } else {
-            return select.column(getCQL3PropertyName());
-        }
+    public PropertyMetaStatementGenerator forStatementGeneration() {
+        return new PropertyMetaStatementGenerator(this);
     }
 
     //Statement Caches
-    public Set<String> extractClusteredFieldsIfNecessary() {
-        if (isEmbeddedId()) {
-            return new HashSet<>(embeddedIdProperties.getCQL3ComponentNames());
-        } else {
-            return Sets.newHashSet(getCQL3PropertyName());
-        }
+    public PropertyMetaCacheSupport forCache() {
+        return new PropertyMetaCacheSupport(this);
     }
 
     //Table Validation
-    public void validatePrimaryKeyComponents(TableMetadata tableMetadata, boolean partitionKey) {
-        Validator.validateNotNull(embeddedIdProperties, "Cannot validate compound primary keys components against Cassandra meta data because entity '%s' does not have a compound primary key",entityClassName);
-        embeddedIdProperties.validatePrimaryKeyComponents(tableMetadata, partitionKey);
+    public PropertyMetaTableValidator forTableValidation() {
+        return new PropertyMetaTableValidator(this);
     }
 
     //Table creation
-    public void addPartitionKeys(Create createTable) {
-        Validator.validateNotNull(embeddedIdProperties, "Cannot create partition components for entity '%s' because it does not have a compound primary key",entityClassName);
-        embeddedIdProperties.addPartitionKeys(createTable);
-    }
-
-    public void addClusteringKeys(Create createTable) {
-        Validator.validateNotNull(embeddedIdProperties, "Cannot create clustering keys for entity '%s' because it does not have a compound primary key",entityClassName);
-        embeddedIdProperties.addClusteringKeys(createTable);
+    public PropertyMetaTableCreator forTableCreation() {
+        return new PropertyMetaTableCreator(this);
     }
 
     //Slice query
-    List<String> getPartitionKeysName(int size) {
-        Validator.validateNotNull(embeddedIdProperties, "Cannot get {} partition key names for entity '%s' because it does not have a compound primary key",size, entityClassName);
-        return embeddedIdProperties.getPartitionComponentNames().subList(0,size);
+    PropertyMetaSliceQuerySupport forSliceQuery() {
+        return new PropertyMetaSliceQuerySupport(this);
     }
 
-    String getLastPartitionKeyName() {
-        Validator.validateNotNull(embeddedIdProperties, "Cannot get last partition key name for entity '%s' because it does not have a compound primary key", entityClassName);
-        return embeddedIdProperties.getLastPartitionKeyName();
+    public PropertyMetaSliceQueryContext forSliceQueryContext() {
+        return new PropertyMetaSliceQueryContext(this);
     }
 
-    List<String> getClusteringKeysName(int size) {
-        Validator.validateNotNull(embeddedIdProperties, "Cannot get {} clustering key names for entity '%s' because it does not have a compound primary key",size, entityClassName);
-        return embeddedIdProperties.getClusteringComponentNames().subList(0,size);
+    //Typed query
+    public PropertyMetaTypedQuery forTypedQuery() {
+        return new PropertyMetaTypedQuery(this);
     }
 
-    String getLastClusteringKeyName() {
-        Validator.validateNotNull(embeddedIdProperties, "Cannot get last clustering key name for entity '%s' because it does not have a compound primary key",entityClassName);
-        return embeddedIdProperties.getLastClusteringKeyName();
+    public PropertyMetaTranscoder forTranscoding() {
+        return new PropertyMetaTranscoder(this);
     }
 
-    int getPartitionKeysSize() {
-        return embeddedIdProperties.getPartitionKeysSize();
+    public PropertyMetaStructure structure() {
+        return new PropertyMetaStructure(this);
     }
 
-    int getClusteringKeysSize() {
-        return embeddedIdProperties.getClusteringKeysSize();
-    }
-
-    void validatePartitionComponents(Object...partitionComponents) {
-        log.trace("Validate partition key components {} for entity {}",partitionComponents, entityClassName);
-        Validator.validateNotNull(embeddedIdProperties, "Cannot validate partition components for entity '%s' because it does not have a compound primary key",entityClassName);
-        embeddedIdProperties.validatePartitionComponents(this.entityClassName, partitionComponents);
-    }
-
-    void validatePartitionComponentsIn(Object...partitionComponentsIN) {
-        log.trace("Validate partition key components IN {} for entity {}", partitionComponentsIN, entityClassName);
-        Validator.validateNotNull(embeddedIdProperties, "Cannot validate partition components IN for entity '%s' because it does not have a compound primary key",entityClassName);
-        embeddedIdProperties.validatePartitionComponentsIn(this.entityClassName, partitionComponentsIN);
-    }
-
-    void validateClusteringComponents(Object...clusteringKeys) {
-        log.trace("Validate clustering keys {} for entity {}", clusteringKeys, entityClassName);
-        Validator.validateNotNull(embeddedIdProperties, "Cannot validate clustering keys for entity '%s' because it does not have a compound primary key",entityClassName);
-        embeddedIdProperties.validateClusteringComponents(this.entityClassName, clusteringKeys);
-    }
-
-    void validateClusteringComponentsIn(Object...clusteringKeysIN) {
-        log.trace("Validate clustering keys IN {} for entity {}", clusteringKeysIN, entityClassName);
-        Validator.validateNotNull(embeddedIdProperties, "Cannot validate clustering keys IN for entity '%s' because it does not have a compound primary key",entityClassName);
-        embeddedIdProperties.validateClusteringComponentsIn(this.entityClassName, clusteringKeysIN);
-    }
-
-    public Object instantiateEmbeddedIdWithPartitionComponents(List<Object> partitionComponents) {
-        log.trace("Instantiate compound primary class {} with partition key components {}", valueClass.getCanonicalName(), partitionComponents);
-        Object newPrimaryKey = instantiate();
-        embeddedIdProperties.copyPartitionComponentsToObject(newPrimaryKey, partitionComponents);
-        return newPrimaryKey;
-    }
-
-    //Type query
-    public void validateTypedQuery(String queryString) {
-        if (isEmbeddedId()) {
-            embeddedIdProperties.validateTypedQuery(queryString, valueClass);
-        } else {
-            Validator.validateTrue(queryString.contains(getCQL3PropertyName()),"The typed query [%s] should contain the id column '%s'", queryString, getCQL3PropertyName());
-        }
-    }
-
-    public List<ClusteringOrder> getClusteringOrders() {
-        log.trace("Get clustering orders if any");
-        Validator.validateNotNull(embeddedIdProperties, "Cannot get clustering orders for entity '%s' because it does not have a compound primary key",entityClassName);
-        return embeddedIdProperties.getCluseringOrders();
-    }
-
-
-
-    public PropertyMeta counterIdMeta() {
-        return counterProperties != null ? counterProperties.getIdMeta() : null;
-    }
-
-    public String fqcn() {
-        return counterProperties != null ? counterProperties.getFqcn() : null;
-    }
-
-    public boolean isCounter() {
-        return this.type.isCounter();
-    }
-
-    public boolean isEmbeddedId() {
-        return type.isEmbeddedId();
-    }
-
-    public boolean isClustered() {
-        if (isEmbeddedId()) {
-            return embeddedIdProperties.isClustered();
-        }
-        return false;
-    }
-
-    public boolean isCollectionAndMap() {
-        return type.isCollectionAndMap();
-    }
-
-    public ConsistencyLevel getReadConsistencyLevel() {
-        return consistencyLevels != null ? consistencyLevels.left : null;
-    }
-
-    public ConsistencyLevel getWriteConsistencyLevel() {
-        return consistencyLevels != null ? consistencyLevels.right : null;
-    }
-
-    public Object decode(Object cassandraValue) {
-        return cassandraValue == null ? null : simpleCodec.decode(cassandraValue);
-    }
-
-    public List<Object> decode(List<?> cassandraValue) {
-        return cassandraValue == null ? null : listCodec.decode(cassandraValue);
-    }
-
-    public Set<Object> decode(Set<?> cassandraValue) {
-        return cassandraValue == null ? null : setCodec.decode(cassandraValue);
-    }
-
-    public Map<Object, Object> decode(Map<?, ?> cassandraValue) {
-        return cassandraValue == null ? null : mapCodec.decode(cassandraValue);
-    }
-
-    public Object decodeFromComponents(List<?> components) {
-        Validator.validateTrue(type == PropertyType.EMBEDDED_ID,"Cannot decode components '%s' for the property '%s' which is not a compound primary key", components, propertyName);
-        return components == null ? null : embeddedIdProperties.decodeFromComponents(this.instantiate(), components);
-    }
-
-    public Object decodeFromCassandra(Object fromCassandra) {
-        switch (type) {
-            case SIMPLE:
-            case ID:
-                return simpleCodec.decode(fromCassandra);
-            case LIST:
-                return listCodec.decode((List)fromCassandra);
-            case SET:
-                return setCodec.decode((Set)fromCassandra);
-            case MAP:
-                return mapCodec.decode((Map)fromCassandra);
-            default:
-                throw new AchillesException(String.format("Cannot decode value '%s' from CQL3 for property '%s' of type '%s'",fromCassandra, propertyName, type.name()));
-        }
-    }
-
-    public Object encodeToCassandra(Object fromJava) {
-        switch (type) {
-            case SIMPLE:
-            case ID:
-                return simpleCodec.encode(fromJava);
-            case LIST:
-                return listCodec.encode((List) fromJava);
-            case SET:
-                return setCodec.encode((Set) fromJava);
-            case MAP:
-                return mapCodec.encode((Map) fromJava);
-            case COUNTER:
-                return  ((InternalCounterImpl) fromJava).getInternalCounterDelta();
-            default:
-                throw new AchillesException(String.format("Cannot encode value '%s' to CQL3 for property '%s' of type '%s'",fromJava, propertyName, type.name()));
-        }
-    }
-
-    public Object getAndEncodeValueForCassandra(Object entity) {
-        Object value = getValueFromField(entity);
-        if (value != null) {
-            return encodeToCassandra(value);
-        } else {
-            return null;
-        }
-    }
-
-    public Object encode(Object entityValue) {
-        return entityValue == null ? null : simpleCodec.encode(entityValue);
-    }
-
-    public <T> List<Object> encode(List<T> entityValue) {
-        return entityValue == null ? null : listCodec.encode(entityValue);
-    }
-
-    public Set<Object> encode(Set<?> entityValue) {
-        return entityValue == null ? null : setCodec.encode(entityValue);
-    }
-
-    public Map<Object, Object> encode(Map<?, ?> entityValue) {
-        return entityValue == null ? null : mapCodec.encode(entityValue);
-    }
-
-    public List<Object> encodeToComponents(Object compoundKey, boolean onlyStaticColumns) {
-        Validator.validateTrue(type == PropertyType.EMBEDDED_ID,"Cannot encode object '%s' for the property '%s' which is not a compound primary key", compoundKey, propertyName);
-        return compoundKey == null ? null : embeddedIdProperties.encodeToComponents(compoundKey, onlyStaticColumns);
-    }
-
-
-    List<Object> encodePartitionComponents(List<Object> rawPartitionComponents) {
-        Validator.validateTrue(type == PropertyType.EMBEDDED_ID,"Cannot encode partition components '%s' for the property '%s' which is not a compound primary key", rawPartitionComponents, propertyName);
-        return embeddedIdProperties.encodePartitionComponents(rawPartitionComponents);
-    }
-
-    List<Object> encodePartitionComponentsIN(List<Object> rawPartitionComponentsIN) {
-        Validator.validateTrue(type == PropertyType.EMBEDDED_ID,"Cannot encode partition components '%s' for the property '%s' which is not a compound primary key", rawPartitionComponentsIN, propertyName);
-        return embeddedIdProperties.encodePartitionComponentsIN(rawPartitionComponentsIN);
-    }
-
-    List<Object> encodeClusteringKeys(List<Object> rawClusteringKeys) {
-        Validator.validateTrue(type == PropertyType.EMBEDDED_ID,"Cannot encode clustering components '%s' for the property '%s' which is not a compound primary key", rawClusteringKeys, propertyName);
-        return embeddedIdProperties.encodeClusteringKeys(rawClusteringKeys);
-    }
-
-    List<Object> encodeClusteringKeysIN(List<Object> rawClusteringKeysIN) {
-        Validator.validateTrue(type == PropertyType.EMBEDDED_ID,"Cannot encode clustering components '%s' for the property '%s' which is not a compound primary key", rawClusteringKeysIN, propertyName);
-        return embeddedIdProperties.encodeClusteringKeysIN(rawClusteringKeysIN);
-    }
-
-    public String forceEncodeToJSON(Object object) {
-        log.trace("Force encode {} to JSON", object);
-        Validator.validateNotNull(object, "Cannot encode to JSON null primary key for class '%s'", entityClassName);
-        if (object instanceof String) {
-            return String.class.cast(object);
-        } else {
-            try {
-                return this.defaultJacksonMapper.writeValueAsString(object);
-            } catch (Exception e) {
-                throw new AchillesException(String.format("Error while encoding primary key '%s' for class '%s'", object, entityClassName), e);
-            }
-        }
-    }
 
     public Object getPrimaryKey(Object entity) {
         log.trace("Extract primary from entity {}", entity);
@@ -433,36 +135,16 @@ public class PropertyMeta {
         return invoker.instantiate(valueClass);
     }
 
+    public Object forceLoad(Object target) {
+        return invoker.getValueFromField(target, getter);
+    }
+
     public Object getValueFromField(Object target) {
         return invoker.getValueFromField(target, field);
     }
 
-    public Object invokeGetter(Object target) {
-        return invoker.getValueFromField(target, getter);
-    }
-
-    public <T> List<T> getListValueFromField(Object target) {
-        return invoker.getListValueFromField(target, field);
-    }
-
-    public <T> Set<T> getSetValueFromField(Object target) {
-        return invoker.getSetValueFromField(target, field);
-    }
-
-    public <K, V> Map<K, V> getMapValueFromField(Object target) {
-        return invoker.getMapValueFromField(target, field);
-    }
-
     public void setValueToField(Object target, Object args) {
         invoker.setValueToField(target, field, args);
-    }
-
-    public Class<?> getValueClassForTableCreationAndValidation() {
-        if (timeUUID) {
-            return InternalTimeUUID.class;
-        } else {
-            return valueClass;
-        }
     }
 
     public Object nullValueForCollectionAndMap() {
@@ -544,19 +226,15 @@ public class PropertyMeta {
         this.field = field;
     }
 
-    public EmbeddedIdProperties getEmbeddedIdProperties() {
-        return embeddedIdProperties;
-    }
-
-    public void setEmbeddedIdProperties(EmbeddedIdProperties embeddedIdProperties) {
+    void setEmbeddedIdProperties(EmbeddedIdProperties embeddedIdProperties) {
         this.embeddedIdProperties = embeddedIdProperties;
     }
 
-    public CounterProperties getCounterProperties() {
-        return counterProperties;
+    public void setIdMetaForCounterProperties(PropertyMeta idMeta) {
+        counterProperties.setIdMeta(idMeta);
     }
 
-    public void setCounterProperties(CounterProperties counterProperties) {
+    void setCounterProperties(CounterProperties counterProperties) {
         this.counterProperties = counterProperties;
     }
 
@@ -568,39 +246,23 @@ public class PropertyMeta {
         return entityClassName;
     }
 
-    public void setEntityClassName(String entityClassName) {
+    void setEntityClassName(String entityClassName) {
         this.entityClassName = entityClassName;
-    }
-
-    public boolean isIndexed() {
-        return this.indexProperties != null;
-    }
-
-    public IndexProperties getIndexProperties() {
-        return indexProperties;
     }
 
     public void setIndexProperties(IndexProperties indexProperties) {
         this.indexProperties = indexProperties;
     }
 
-    public ReflectionInvoker getInvoker() {
-        return invoker;
-    }
-
-    public void setInvoker(ReflectionInvoker invoker) {
+    void setInvoker(ReflectionInvoker invoker) {
         this.invoker = invoker;
     }
 
-    public boolean isTimeUUID() {
-        return timeUUID;
-    }
-
-    public void setTimeUUID(boolean timeUUID) {
+    void setTimeUUID(boolean timeUUID) {
         this.timeUUID = timeUUID;
     }
 
-    public void setEmptyCollectionAndMapIfNull(boolean emptyCollectionAndMapIfNull) {
+    void setEmptyCollectionAndMapIfNull(boolean emptyCollectionAndMapIfNull) {
         this.emptyCollectionAndMapIfNull = emptyCollectionAndMapIfNull;
     }
 
@@ -608,7 +270,7 @@ public class PropertyMeta {
         return staticColumn;
     }
 
-    public void setStaticColumn(boolean staticColumn) {
+    void setStaticColumn(boolean staticColumn) {
         this.staticColumn = staticColumn;
     }
 

@@ -160,7 +160,7 @@ public class TableValidator {
             Validator.validateTableTrue(columnMetadata != null, "Cannot find column '%s' in the table '%s'", columnName, tableName);
         }
         Name realType = columnMetadata.getType().getName();
-        Name expectedValueType = toCQLType(pm.getValueClassForTableCreationAndValidation());
+        Name expectedValueType = toCQLType(pm.forTableCreation().getValueClassForTableCreationAndValidation());
 
         switch (pm.type()) {
             case LIST:
@@ -206,7 +206,7 @@ public class TableValidator {
 
     private void validatePrimaryKeyComponents(TableMetadata tableMetadata, PropertyMeta idMeta, boolean partitionKey) {
         log.debug("Validate existing primary key component from table {} against Achilles meta data {}",tableMetadata.getName(), idMeta);
-        idMeta.validatePrimaryKeyComponents(tableMetadata, partitionKey);
+        idMeta.forTableValidation().validatePrimaryKeyComponents(tableMetadata, partitionKey);
     }
 
     private boolean hasColumnMeta(Collection<ColumnMetadata> columnMetadatas, ColumnMetadata fqcnColumn) {
@@ -220,7 +220,7 @@ public class TableValidator {
     private void validateColumn(TableMetadata tableMetaData, EntityMeta entityMeta, PropertyMeta propertyMeta,  ConfigurationContext configContext) {
 
         final String columnName = propertyMeta.getCQL3PropertyName();
-        final Class<?> columnJavaType = propertyMeta.getValueClassForTableCreationAndValidation();
+        final Class<?> columnJavaType = propertyMeta.forTableCreation().getValueClassForTableCreationAndValidation();
         final boolean schemaUpdateEnabled = entityMeta.isSchemaUpdateEnabled();
         String tableName = tableMetaData.getName();
 
@@ -241,7 +241,7 @@ public class TableValidator {
 
         if (!configContext.isRelaxIndexValidation()) {
             boolean columnIsIndexed = columnMetadata.getIndex() != null;
-            Validator.validateTableFalse((columnIsIndexed ^ propertyMeta.isIndexed()),"Column '%s' in the table '%s' is indexed (or not) whereas metadata indicates it is (or not)",columnName, tableName);
+            Validator.validateTableFalse((columnIsIndexed ^ propertyMeta.structure().isIndexed()),"Column '%s' in the table '%s' is indexed (or not) whereas metadata indicates it is (or not)",columnName, tableName);
         }
     }
 

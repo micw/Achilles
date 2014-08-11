@@ -63,7 +63,7 @@ public class CacheManager {
 
         Class<?> entityClass = context.getEntityClass();
         EntityMeta entityMeta = context.getEntityMeta();
-        Set<String> clusteredFields = pm.extractClusteredFieldsIfNecessary();
+        Set<String> clusteredFields = pm.forCache().extractClusteredFieldsIfNecessary();
         StatementCacheKey cacheKey = new StatementCacheKey(CacheType.SELECT_FIELD, clusteredFields, entityClass, noOptions());
         PreparedStatement ps = dynamicPSCache.getIfPresent(cacheKey);
         if (ps == null) {

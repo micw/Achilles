@@ -56,7 +56,7 @@ public class DirtyCheckChangeSetTest {
     public void should_get_encoded_list_changes() throws Exception {
         //Given
         changeSet.listChanges.add("a");
-        when(pm.encode(changeSet.listChanges)).thenReturn(changeSet.listChanges);
+        when(pm.forTranscoding().encodeToCassandra(changeSet.listChanges)).thenReturn(changeSet.listChanges);
 
         //When
         List<Object> actual = changeSet.getEncodedListChanges();
@@ -79,7 +79,7 @@ public class DirtyCheckChangeSetTest {
     public void should_get_encoded_list_change_at_index() throws Exception {
         //Given
         changeSet.listChangeAtIndex = new ElementAtIndex(0, "a");
-        when(pm.encode("a")).thenReturn("a");
+        when(pm.forTranscoding().encodeToCassandra("a")).thenReturn("a");
 
         //When
         ElementAtIndex actual = changeSet.getEncodedListChangeAtIndex();
@@ -102,7 +102,7 @@ public class DirtyCheckChangeSetTest {
     public void should_get_encoded_set_changes() throws Exception {
         //Given
         changeSet.setChanges.add("a");
-        when(pm.encode(changeSet.setChanges)).thenReturn(changeSet.setChanges);
+        when(pm.forTranscoding().encodeToCassandra(changeSet.setChanges)).thenReturn(changeSet.setChanges);
 
         //When
         Set<Object> actual = changeSet.getEncodedSetChanges();
@@ -124,7 +124,7 @@ public class DirtyCheckChangeSetTest {
     public void should_get_encoded_map_changes() throws Exception {
         //Given
         changeSet.mapChanges.put(1, "a");
-        when(pm.encode(changeSet.mapChanges)).thenReturn(ImmutableMap.<Object, Object>of(1, "a"));
+        when(pm.forTranscoding().encodeToCassandra(changeSet.mapChanges)).thenReturn(ImmutableMap.<Object, Object>of(1, "a"));
 
         //When
         Map<Object, Object> actual = changeSet.getEncodedMapChanges();
@@ -146,13 +146,12 @@ public class DirtyCheckChangeSetTest {
     public void should_generate_update_for_added_elements() throws Exception {
         //Given
         changeSet.setChanges.add("a");
-        when(pm.encode(changeSet.setChanges)).thenReturn(changeSet.setChanges);
+        when(pm.forTranscoding().encodeToCassandra(changeSet.setChanges)).thenReturn(changeSet.setChanges);
 
         //When
-        Object[] vals = changeSet.generateUpdateForAddedElements(update(), false).right;
+        changeSet.generateUpdateForAddedElements(update());
 
         //Then
-        assertThat((Set<Object>) vals[0]).containsExactly("a");
         assertThat(conditions.getQueryString()).isEqualTo("UPDATE table SET property=property+?;");
     }
 
@@ -162,10 +161,9 @@ public class DirtyCheckChangeSetTest {
         changeSet.setChanges.add("a");
 
         //When
-        Object[] vals = changeSet.generateUpdateForAddedElements(update(), true).right;
+        changeSet.generateUpdateForAddedElements(update());
 
         //Then
-        assertThat(vals[0]).isNull();
         assertThat(conditions.getQueryString()).isEqualTo("UPDATE table SET property=property+:property;");
     }
 
@@ -173,13 +171,12 @@ public class DirtyCheckChangeSetTest {
     public void should_generate_update_for_removed_elements() throws Exception {
         //Given
         changeSet.setChanges.add("a");
-        when(pm.encode(changeSet.setChanges)).thenReturn(changeSet.setChanges);
+        when(pm.forTranscoding().encodeToCassandra(changeSet.setChanges)).thenReturn(changeSet.setChanges);
 
         //When
-        Object[] vals = changeSet.generateUpdateForRemovedElements(update(), false).right;
+        changeSet.generateUpdateForRemovedElements(update());
 
         //Then
-        assertThat((Set<Object>) vals[0]).containsExactly("a");
         assertThat(conditions.getQueryString()).isEqualTo("UPDATE table SET property=property-?;");
     }
 
@@ -189,10 +186,9 @@ public class DirtyCheckChangeSetTest {
         changeSet.setChanges.add("a");
 
         //When
-        Object[] vals = changeSet.generateUpdateForRemovedElements(update(), true).right;
+        changeSet.generateUpdateForRemovedElements(update());
 
         //Then
-        assertThat(vals[0]).isNull();
         assertThat(conditions.getQueryString()).isEqualTo("UPDATE table SET property=property-:property;");
     }
 
@@ -201,13 +197,12 @@ public class DirtyCheckChangeSetTest {
     public void should_generate_update_for_appended_elements() throws Exception {
         //Given
         changeSet.listChanges.add("a");
-        when(pm.encode(changeSet.listChanges)).thenReturn(changeSet.listChanges);
+        when(pm.forTranscoding().encodeToCassandra(changeSet.listChanges)).thenReturn(changeSet.listChanges);
 
         //When
-        Object[] vals = changeSet.generateUpdateForAppendedElements(update(), false).right;
+        changeSet.generateUpdateForAppendedElements(update());
 
         //Then
-        assertThat((List<Object>) vals[0]).containsExactly("a");
         assertThat(conditions.getQueryString()).isEqualTo("UPDATE table SET property=property+?;");
     }
 
@@ -217,10 +212,9 @@ public class DirtyCheckChangeSetTest {
         changeSet.listChanges.add("a");
 
         //When
-        Object[] vals = changeSet.generateUpdateForAppendedElements(update(), true).right;
+        changeSet.generateUpdateForAppendedElements(update());
 
         //Then
-        assertThat(vals[0]).isNull();
         assertThat(conditions.getQueryString()).isEqualTo("UPDATE table SET property=property+:property;");
     }
 
@@ -228,13 +222,12 @@ public class DirtyCheckChangeSetTest {
     public void should_generate_update_for_prepended_elements() throws Exception {
         //Given
         changeSet.listChanges.add("a");
-        when(pm.encode(changeSet.listChanges)).thenReturn(changeSet.listChanges);
+        when(pm.forTranscoding().encodeToCassandra(changeSet.listChanges)).thenReturn(changeSet.listChanges);
 
         //When
-        Object[] vals = changeSet.generateUpdateForPrependedElements(update(), false).right;
+        changeSet.generateUpdateForPrependedElements(update());
 
         //Then
-        assertThat((List<Object>) vals[0]).containsExactly("a");
         assertThat(conditions.getQueryString()).isEqualTo("UPDATE table SET property=?+property;");
     }
 
@@ -244,10 +237,9 @@ public class DirtyCheckChangeSetTest {
         changeSet.listChanges.add("a");
 
         //When
-        Object[] vals = changeSet.generateUpdateForPrependedElements(update(), true).right;
+        changeSet.generateUpdateForPrependedElements(update());
 
         //Then
-        assertThat(vals[0]).isNull();
         assertThat(conditions.getQueryString()).isEqualTo("UPDATE table SET property=:property+property;");
     }
 
@@ -255,13 +247,12 @@ public class DirtyCheckChangeSetTest {
     public void should_generate_update_for_remove_list_element() throws Exception {
         //Given
         changeSet.listChanges.add("a");
-        when(pm.encode(changeSet.listChanges)).thenReturn(changeSet.listChanges);
+        when(pm.forTranscoding().encodeToCassandra(changeSet.listChanges)).thenReturn(changeSet.listChanges);
 
         //When
-        Object[] vals = changeSet.generateUpdateForRemoveListElements(update(), false).right;
+        changeSet.generateUpdateForRemoveListElements(update());
 
         //Then
-        assertThat((List<Object>) vals[0]).containsExactly("a");
         assertThat(conditions.getQueryString()).isEqualTo("UPDATE table SET property=property-?;");
     }
 
@@ -271,10 +262,9 @@ public class DirtyCheckChangeSetTest {
         changeSet.listChanges.add("a");
 
         //When
-        Object[] vals = changeSet.generateUpdateForRemoveListElements(update(), true).right;
+        changeSet.generateUpdateForRemoveListElements(update());
 
         //Then
-        assertThat(vals[0]).isNull();
         assertThat(conditions.getQueryString()).isEqualTo("UPDATE table SET property=property-:property;");
     }
 
@@ -282,7 +272,7 @@ public class DirtyCheckChangeSetTest {
     public void should_generate_update_for_set_element_at_index() throws Exception {
         //Given
         changeSet.listChangeAtIndex = new ElementAtIndex(1, "a");
-        when(pm.encode("a")).thenReturn("a");
+        when(pm.forTranscoding().encodeToCassandra("a")).thenReturn("a");
 
         //When
         Object[] vals = changeSet.generateUpdateForSetAtIndexElement(update()).right;
@@ -297,7 +287,7 @@ public class DirtyCheckChangeSetTest {
     public void should_generate_update_for_remove_element_at_index() throws Exception {
         //Given
         changeSet.listChangeAtIndex = new ElementAtIndex(1, "a");
-        when(pm.encode("a")).thenReturn("a");
+        when(pm.forTranscoding().encodeToCassandra("a")).thenReturn("a");
 
         //When
         Object[] vals = changeSet.generateUpdateForRemovedAtIndexElement(update()).right;
@@ -312,13 +302,12 @@ public class DirtyCheckChangeSetTest {
     public void should_generate_update_for_added_entries() throws Exception {
         //Given
         changeSet.mapChanges.put(1, "a");
-        when(pm.encode(changeSet.mapChanges)).thenReturn(ImmutableMap.<Object, Object>of(1, "a"));
+        when(pm.forTranscoding().encodeToCassandra(changeSet.mapChanges)).thenReturn(ImmutableMap.<Object, Object>of(1, "a"));
 
         //When
-        Object[] vals = changeSet.generateUpdateForAddedEntries(update(), false).right;
+        changeSet.generateUpdateForAddedEntries(update());
 
         //Then
-        assertThat((Map<Object, Object>) vals[0]).contains(entry(1, "a"));
         assertThat(conditions.getQueryString()).isEqualTo("UPDATE table SET property=property+?;");
     }
 
@@ -326,13 +315,12 @@ public class DirtyCheckChangeSetTest {
     public void should_generate_update_for_added_entries_with_bind_marker() throws Exception {
         //Given
         changeSet.mapChanges.put(1, "a");
-        when(pm.encode(changeSet.mapChanges)).thenReturn(ImmutableMap.<Object, Object>of(1, "a"));
+        when(pm.forTranscoding().encodeToCassandra(changeSet.mapChanges)).thenReturn(ImmutableMap.<Object, Object>of(1, "a"));
 
         //When
-        Object[] vals = changeSet.generateUpdateForAddedEntries(update(), true).right;
+        changeSet.generateUpdateForAddedEntries(update());
 
         //Then
-        assertThat(vals[0]).isNull();
         assertThat(conditions.getQueryString()).isEqualTo("UPDATE table SET property=property+:property;");
     }
 
@@ -340,14 +328,12 @@ public class DirtyCheckChangeSetTest {
     public void should_generate_update_for_removed_key() throws Exception {
         //Given
         changeSet.mapChanges.put(1, "a");
-        when(pm.encode(changeSet.mapChanges)).thenReturn(ImmutableMap.<Object, Object>of(1, "a"));
+        when(pm.forTranscoding().encodeToCassandra(changeSet.mapChanges)).thenReturn(ImmutableMap.<Object, Object>of(1, "a"));
 
         //When
-        Object[] vals = changeSet.generateUpdateForRemovedKey(update(), false).right;
+        changeSet.generateUpdateForRemovedKey(update());
 
         //Then
-        assertThat(vals[0]).isEqualTo(1);
-        assertThat(vals[1]).isNull();
         assertThat(conditions.getQueryString()).isEqualTo("UPDATE table SET property[1]=null;");
     }
 
@@ -355,14 +341,12 @@ public class DirtyCheckChangeSetTest {
     public void should_generate_update_for_removed_key_with_bind_marker() throws Exception {
         //Given
         changeSet.mapChanges.put(1, "a");
-        when(pm.encode(changeSet.mapChanges)).thenReturn(ImmutableMap.<Object, Object>of(1, "a"));
+        when(pm.forTranscoding().encodeToCassandra(changeSet.mapChanges)).thenReturn(ImmutableMap.<Object, Object>of(1, "a"));
 
         //When
-        Object[] vals = changeSet.generateUpdateForRemovedKey(update(), true).right;
+        changeSet.generateUpdateForRemovedKey(update());
 
         //Then
-        assertThat(vals[0]).isEqualTo(1);
-        assertThat(vals[1]).isNull();
         assertThat(conditions.getQueryString()).isEqualTo("UPDATE table SET property[:key]=:nullValue;");
     }
 
@@ -370,104 +354,20 @@ public class DirtyCheckChangeSetTest {
     @Test
     public void should_generate_update_for_remove_all() throws Exception {
         //When
-        Object[] vals = changeSet.generateUpdateForRemoveAll(update(), false).right;
+        changeSet.generateUpdateForRemoveAll(update());
 
         //Then
-        assertThat(vals[0]).isNull();
         assertThat(conditions.getQueryString()).isEqualTo("UPDATE table SET property=null;");
     }
 
     @Test
     public void should_generate_update_for_remove_all_with_bind_marker() throws Exception {
         //When
-        Object[] vals = changeSet.generateUpdateForRemoveAll(update(), true).right;
+        changeSet.generateUpdateForRemoveAll(update());
 
         //Then
-        assertThat(vals[0]).isNull();
         assertThat(conditions.getQueryString()).isEqualTo("UPDATE table SET property=:property;");
     }
-
-    @Test
-    public void should_generate_update_for_assign_list_value() throws Exception {
-        //Given
-        changeSet.listChanges.add("a");
-        when(pm.encode(changeSet.listChanges)).thenReturn(changeSet.listChanges);
-
-        //When
-        Object[] vals = changeSet.generateUpdateForAssignValueToList(update(), false).right;
-
-        //Then
-        assertThat((List<Object>) vals[0]).containsExactly("a");
-        assertThat(conditions.getQueryString()).isEqualTo("UPDATE table SET property=?;");
-    }
-
-    @Test
-    public void should_generate_update_for_assign_list_value_with_bind_marker() throws Exception {
-        //Given
-        changeSet.listChanges.add("a");
-
-        //When
-        Object[] vals = changeSet.generateUpdateForAssignValueToList(update(), true).right;
-
-        //Then
-        assertThat(vals[0]).isNull();
-        assertThat(conditions.getQueryString()).isEqualTo("UPDATE table SET property=:property;");
-    }
-
-    @Test
-    public void should_generate_update_for_assign_set_value() throws Exception {
-        //Given
-        changeSet.setChanges.add("a");
-        when(pm.encode(changeSet.setChanges)).thenReturn(changeSet.setChanges);
-
-        //When
-        Object[] vals = changeSet.generateUpdateForAssignValueToSet(update(), false).right;
-
-        //Then
-        assertThat((Set<Object>) vals[0]).containsExactly("a");
-        assertThat(conditions.getQueryString()).isEqualTo("UPDATE table SET property=?;");
-    }
-
-    @Test
-    public void should_generate_update_for_assign_set_value_with_bind_marker() throws Exception {
-        //Given
-        changeSet.setChanges.add("a");
-
-        //When
-        Object[] vals = changeSet.generateUpdateForAssignValueToSet(update(), true).right;
-
-        //Then
-        assertThat(vals[0]).isNull();
-        assertThat(conditions.getQueryString()).isEqualTo("UPDATE table SET property=:property;");
-    }
-
-    @Test
-    public void should_generate_update_for_assign_map_value() throws Exception {
-        //Given
-        changeSet.mapChanges.put(1, "a");
-        when(pm.encode(changeSet.mapChanges)).thenReturn(ImmutableMap.<Object, Object>of(1, "a"));
-
-        //When
-        Object[] vals = changeSet.generateUpdateForAssignValueToMap(update(), false).right;
-
-        //Then
-        assertThat((Map<Object, Object>) vals[0]).contains(entry(1, "a"));
-        assertThat(conditions.getQueryString()).isEqualTo("UPDATE table SET property=?;");
-    }
-
-    @Test
-    public void should_generate_update_for_assign_map_value_with_bind_marker() throws Exception {
-        //Given
-        changeSet.setChanges.add("a");
-
-        //When
-        Object[] vals = changeSet.generateUpdateForAssignValueToMap(update(), true).right;
-
-        //Then
-        assertThat(vals[0]).isNull();
-        assertThat(conditions.getQueryString()).isEqualTo("UPDATE table SET property=:property;");
-    }
-
 
     private Update.Conditions update() {
         conditions = QueryBuilder.update("table").onlyIf();

@@ -43,7 +43,7 @@ public class DeleteDSLTest {
 
     @Before
     public void setUp() {
-        when(entityMeta.getClusteringOrders()).thenReturn(asList(new Create.Options.ClusteringOrder("col1", Create.Options.ClusteringOrder.Sorting.ASC)));
+        when(entityMeta.getClusteringOrderForSliceQuery()).thenReturn(new Create.Options.ClusteringOrder("col1", Create.Options.ClusteringOrder.Sorting.ASC));
         when(entityMeta.getPartitionKeysSize()).thenReturn(2);
         when(entityMeta.getClusteringKeysSize()).thenReturn(3);
 

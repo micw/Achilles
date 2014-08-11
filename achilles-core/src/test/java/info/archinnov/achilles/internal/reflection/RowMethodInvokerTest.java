@@ -84,7 +84,7 @@ public class RowMethodInvokerTest {
         when(pm.type()).thenReturn(PropertyType.LIST);
         List<String> list = Arrays.asList("value");
         when(row.getList("property", String.class)).thenReturn(list);
-        when(pm.decode(list)).thenReturn((List) list);
+        when(pm.forTranscoding().decode(list)).thenReturn((List) list);
 
         Object actual = invoker.invokeOnRowForFields(row, pm);
 
@@ -110,7 +110,7 @@ public class RowMethodInvokerTest {
 
         Set<String> set = Sets.newHashSet("value");
         when(row.getSet("property", String.class)).thenReturn(set);
-        when(pm.decode(set)).thenReturn((Set) set);
+        when(pm.forTranscoding().decode(set)).thenReturn((Set) set);
 
         Object actual = invoker.invokeOnRowForFields(row, pm);
 
@@ -135,7 +135,7 @@ public class RowMethodInvokerTest {
         when(pm.type()).thenReturn(PropertyType.MAP);
         Map<Integer, String> map = ImmutableMap.of(11, "value");
         when(row.getMap("property", Integer.class, String.class)).thenReturn(map);
-        when(pm.decode(map)).thenReturn((Map) map);
+        when(pm.forTranscoding().decode(map)).thenReturn((Map) map);
 
         Object actual = invoker.invokeOnRowForFields(row, pm);
 
@@ -160,7 +160,7 @@ public class RowMethodInvokerTest {
         when(pm.type()).thenReturn(PropertyType.SIMPLE);
 
         when(row.getString("property")).thenReturn("value");
-        when(pm.decode("value")).thenReturn("value");
+        when(pm.forTranscoding().decode("value")).thenReturn("value");
 
         Object actual = invoker.invokeOnRowForFields(row, pm);
 
@@ -172,7 +172,7 @@ public class RowMethodInvokerTest {
         when(pm.type()).thenReturn(PropertyType.ID);
 
         when(row.getString("property")).thenReturn("value");
-        when(pm.decode("value")).thenReturn("value");
+        when(pm.forTranscoding().decode("value")).thenReturn("value");
         Object actual = invoker.invokeOnRowForFields(row, pm);
 
         assertThat(actual).isEqualTo("value");
@@ -244,7 +244,7 @@ public class RowMethodInvokerTest {
 
     @Test
     public void should_test() throws Exception {
-        List<Object> rawValues = new ArrayList<Object>(Collections.nCopies(2, null));
+        List<Object> rawValues = new ArrayList<>(Collections.nCopies(2, null));
 
         assertThat(rawValues.get(0)).isNull();
         assertThat(rawValues.get(1)).isNull();

@@ -106,7 +106,7 @@ public class SliceQueryExecutorTest {
         when(configContext.getDefaultWriteConsistencyLevel()).thenReturn(defaultWriteLevel);
         when(context.getEntityFacade()).thenReturn(entityFacade);
         when(meta.getIdMeta()).thenReturn(idMeta);
-        when(meta.getClusteringOrders()).thenReturn(asList(new ClusteringOrder("col", Sorting.ASC)));
+        when(meta.getClusteringOrderForSliceQuery()).thenReturn(new ClusteringOrder("col", Sorting.ASC));
 
         sliceQueryProperties = SliceQueryProperties.builder(meta,ClusteredEntity.class, SliceQueryProperties.SliceType.SELECT);
 

@@ -15,7 +15,6 @@
  */
 package info.archinnov.achilles.internal.statement;
 
-import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.timestamp;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.ttl;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.update;
@@ -31,7 +30,6 @@ import com.google.common.base.Optional;
 import info.archinnov.achilles.exception.AchillesException;
 import info.archinnov.achilles.internal.context.facade.PersistentStateHolder;
 import info.archinnov.achilles.internal.metadata.holder.EntityMeta;
-import info.archinnov.achilles.internal.metadata.holder.PropertyMeta;
 import info.archinnov.achilles.internal.persistence.operations.CollectionAndMapChangeType;
 import info.archinnov.achilles.internal.proxy.dirtycheck.DirtyCheckChangeSet;
 import info.archinnov.achilles.type.Pair;
@@ -77,7 +75,7 @@ public class StatementGenerator {
                 throw new AchillesException(String.format("Should not generate non-prepapred statement for collection/map change of type '%s'", operationType));
         }
 
-        final Pair<Update.Where, Object[]> whereClauseAndBoundValues = meta.getIdMeta().generateWhereClauseForUpdate(entity, changeSet.getPropertyMeta(), updateClauseAndBoundValues.left);
+        final Pair<Update.Where, Object[]> whereClauseAndBoundValues = meta.getIdMeta().forStatementGeneration().generateWhereClauseForUpdate(entity, changeSet.getPropertyMeta(), updateClauseAndBoundValues.left);
         boundValues = addAll(addAll(boundValues, addAll(updateClauseAndBoundValues.right, whereClauseAndBoundValues.right)), casEncodedValues.toArray());
         return Pair.create(whereClauseAndBoundValues.left, boundValues);
     }

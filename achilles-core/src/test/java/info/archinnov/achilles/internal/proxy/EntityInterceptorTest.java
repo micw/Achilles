@@ -20,7 +20,7 @@ import static info.archinnov.achilles.internal.persistence.operations.Collection
 import static info.archinnov.achilles.internal.persistence.operations.CollectionAndMapChangeType.ASSIGN_VALUE_TO_MAP;
 import static info.archinnov.achilles.internal.persistence.operations.CollectionAndMapChangeType.ASSIGN_VALUE_TO_SET;
 import static info.archinnov.achilles.internal.persistence.operations.CollectionAndMapChangeType.REMOVE_COLLECTION_OR_MAP;
-import static info.archinnov.achilles.test.builders.PropertyMetaTestBuilder.completeBean;
+import static info.archinnov.achilles.internal.metadata.holder.PropertyMetaTestBuilder.completeBean;
 import static java.util.Arrays.asList;
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;

@@ -43,7 +43,6 @@ import info.archinnov.achilles.interceptor.Event;
 import info.archinnov.achilles.interceptor.Interceptor;
 import info.archinnov.achilles.internal.reflection.ReflectionInvoker;
 import info.archinnov.achilles.test.builders.CompleteBeanTestBuilder;
-import info.archinnov.achilles.test.builders.PropertyMetaTestBuilder;
 import info.archinnov.achilles.test.mapping.entity.CompleteBean;
 import info.archinnov.achilles.type.IndexCondition;
 import info.archinnov.achilles.type.Pair;
@@ -289,13 +288,13 @@ public class EntityMetaTest {
         meta.setAllMetasExceptCounters(asList(nameMeta));
 
         when(nameMeta.getCQL3PropertyName()).thenReturn("name");
-        when(nameMeta.encode(PropertyType.COUNTER)).thenReturn("COUNTER");
+        when(nameMeta.forTranscoding().encodeToCassandra(PropertyType.COUNTER)).thenReturn("COUNTER");
 
         //When
         final Object encoded = meta.encodeCasConditionValue(CASCondition);
 
         //Then
-        verify(nameMeta).encode(PropertyType.COUNTER);
+        verify(nameMeta.forTranscoding()).encodeToCassandra(PropertyType.COUNTER);
         assertThat(encoded).isInstanceOf(String.class).isEqualTo("COUNTER");
         assertThat(CASCondition.getValue()).isEqualTo("COUNTER");
     }
@@ -309,13 +308,13 @@ public class EntityMetaTest {
         meta.setAllMetasExceptCounters(asList(nameMeta));
 
         when(nameMeta.getCQL3PropertyName()).thenReturn("name");
-        when(nameMeta.encode(PropertyType.COUNTER)).thenReturn("COUNTER");
+        when(nameMeta.forTranscoding().encodeToCassandra(PropertyType.COUNTER)).thenReturn("COUNTER");
 
         //When
         final Object encoded = meta.encodeIndexConditionValue(indexCondition);
 
         //Then
-        verify(nameMeta).encode(PropertyType.COUNTER);
+        verify(nameMeta.forTranscoding()).encodeToCassandra(PropertyType.COUNTER);
         assertThat(encoded).isInstanceOf(String.class).isEqualTo("COUNTER");
         assertThat(indexCondition.getColumnValue()).isEqualTo("COUNTER");
     }

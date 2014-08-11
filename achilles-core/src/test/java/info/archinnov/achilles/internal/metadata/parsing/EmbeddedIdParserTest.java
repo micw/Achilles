@@ -47,7 +47,6 @@ import info.archinnov.achilles.test.parser.entity.EmbeddedKeyWithNegativeOrder;
 import info.archinnov.achilles.test.parser.entity.EmbeddedKeyWithNoAnnotation;
 import info.archinnov.achilles.test.parser.entity.EmbeddedKeyWithOnlyOneComponent;
 import info.archinnov.achilles.test.parser.entity.EmbeddedKeyWithStaticColumn;
-import info.archinnov.achilles.test.parser.entity.EmbeddedKeyWithTimeUUID;
 
 @RunWith(MockitoJUnitRunner.class)
 public class EmbeddedIdParserTest {
@@ -127,8 +126,8 @@ public class EmbeddedIdParserTest {
         assertThat(props.getClusteringComponentClasses()).containsExactly(int.class,int.class);
         assertThat(props.getPartitionComponentNames()).containsExactly("name");
         assertThat(props.getPartitionComponentClasses()).containsExactly(String.class);
-        assertThat(props.getCluseringOrders().get(0).getSorting()).isEqualTo(DESC);
-        assertThat(props.getCluseringOrders().get(1).getSorting()).isEqualTo(DESC);
+        assertThat(props.getClusteringOrders().get(0).getSorting()).isEqualTo(DESC);
+        assertThat(props.getClusteringOrders().get(1).getSorting()).isEqualTo(DESC);
     }
 
     @Test

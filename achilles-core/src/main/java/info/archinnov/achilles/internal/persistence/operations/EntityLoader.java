@@ -74,11 +74,11 @@ public class EntityLoader {
 
     public void loadPropertyIntoObject(EntityOperations context, Object realObject, PropertyMeta pm) {
         log.trace("Loading property {} into object {}", pm.getPropertyName(), realObject);
-        if (pm.isCounter()) {
+        if (pm.structure().isCounter()) {
             counterLoader.loadCounter(context, realObject, pm);
         } else {
             Row row = context.loadProperty(pm);
-            if (row == null && pm.isCollectionAndMap()) {
+            if (row == null && pm.structure().isCollectionAndMap()) {
                 row = new NullRow();
             }
             mapper.setPropertyToEntity(row, context.getEntityMeta(), pm, realObject);

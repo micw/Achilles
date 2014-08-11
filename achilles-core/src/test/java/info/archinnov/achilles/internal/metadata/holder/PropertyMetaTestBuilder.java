@@ -13,16 +13,12 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package info.archinnov.achilles.test.builders;
+package info.archinnov.achilles.internal.metadata.holder;
 
 import static info.archinnov.achilles.schemabuilder.Create.Options.ClusteringOrder;
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.Arrays;
-import java.util.List;
 
-import info.archinnov.achilles.internal.metadata.holder.*;
-import info.archinnov.achilles.json.DefaultJacksonMapperFactory;
 import org.apache.commons.lang.StringUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import info.archinnov.achilles.internal.metadata.parsing.EntityIntrospector;

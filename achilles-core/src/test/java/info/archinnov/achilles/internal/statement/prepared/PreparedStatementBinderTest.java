@@ -35,7 +35,7 @@ import static info.archinnov.achilles.internal.persistence.operations.Collection
 import static info.archinnov.achilles.internal.persistence.operations.CollectionAndMapChangeType.REMOVE_FROM_MAP;
 import static info.archinnov.achilles.internal.persistence.operations.CollectionAndMapChangeType.REMOVE_FROM_SET;
 import static info.archinnov.achilles.internal.persistence.operations.CollectionAndMapChangeType.SET_TO_LIST_AT_INDEX;
-import static info.archinnov.achilles.test.builders.PropertyMetaTestBuilder.completeBean;
+import static info.archinnov.achilles.internal.metadata.holder.PropertyMetaTestBuilder.completeBean;
 import static info.archinnov.achilles.type.ConsistencyLevel.ALL;
 import static info.archinnov.achilles.type.Options.CASCondition;
 import static java.util.Arrays.asList;

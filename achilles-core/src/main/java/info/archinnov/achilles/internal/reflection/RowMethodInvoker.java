@@ -18,25 +18,24 @@ package info.archinnov.achilles.internal.reflection;
 import static info.archinnov.achilles.internal.cql.TypeMapper.getRowMethod;
 import static info.archinnov.achilles.internal.cql.TypeMapper.toCompatibleJavaType;
 import static info.archinnov.achilles.internal.metadata.holder.EntityMeta.EntityState;
-import java.util.ArrayList;
-import java.util.Collections;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import info.archinnov.achilles.internal.metadata.holder.PropertyMetaRowExtractor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.datastax.driver.core.ColumnDefinitions.Definition;
 import com.datastax.driver.core.Row;
 import info.archinnov.achilles.exception.AchillesException;
 import info.archinnov.achilles.internal.metadata.holder.EntityMeta;
 import info.archinnov.achilles.internal.metadata.holder.PropertyMeta;
-import info.archinnov.achilles.internal.validation.Validator;
 
 public class RowMethodInvoker {
     private static final Logger log = LoggerFactory.getLogger(RowMethodInvoker.class);
 
     public Object invokeOnRowForFields(Row row, PropertyMeta pm) {
-        String propertyName = pm.getPropertyName().toLowerCase();
+        String propertyName = pm.getCQL3PropertyName();
         Object value = null;
         if (!row.isNull(propertyName)) {
             switch (pm.type()) {
@@ -74,11 +73,12 @@ public class RowMethodInvoker {
 
     public Object extractCompoundPrimaryKeyFromRow(Row row, EntityMeta meta,PropertyMeta pm, EntityState entityState) {
         log.trace("Extract compound primary key {} from CQL row for entity class {}", pm.getPropertyName(),pm.getEntityClassName());
-        final List<Object> rawComponents = pm.extractRawCompoundPrimaryComponentsFromRow(row);
+        final PropertyMetaRowExtractor rowExtractor = pm.forRowExtraction();
+        final List<Object> rawComponents = rowExtractor.extractRawCompoundPrimaryComponentsFromRow(row);
         if (entityState.isManaged() && !meta.hasOnlyStaticColumns()) {
-            pm.validateExtractedCompoundPrimaryComponents(rawComponents, pm.getValueClass());
+            rowExtractor.validateExtractedCompoundPrimaryComponents(rawComponents, pm.getValueClass());
         }
-        return pm.decodeFromComponents(rawComponents);
+        return pm.forTranscoding().decodeFromComponents(rawComponents);
 
     }
 
@@ -86,7 +86,7 @@ public class RowMethodInvoker {
         log.trace("Extract property {} from CQL row for entity class {}", propertyName, pm.getEntityClassName());
         try {
             Object rawValue = getRowMethod(valueClass).invoke(row, propertyName);
-            return pm.decode(rawValue);
+            return pm.forTranscoding().decode(rawValue);
         } catch (Exception e) {
             throw new AchillesException("Cannot retrieve property '" + propertyName + "' for entity class '"
                     + pm.getEntityClassName() + "' from CQL Row", e);
@@ -97,7 +97,7 @@ public class RowMethodInvoker {
         log.trace("Extract list property {} from CQL row for entity class {}", propertyName, pm.getEntityClassName());
         try {
             List<?> rawValues = row.getList(propertyName, toCompatibleJavaType(valueClass));
-            return pm.decode(rawValues);
+            return pm.forTranscoding().decode(rawValues);
 
         } catch (Exception e) {
             throw new AchillesException("Cannot retrieve list property '" + propertyName + "' from CQL Row", e);
@@ -108,7 +108,7 @@ public class RowMethodInvoker {
         log.trace("Extract set property {} from CQL row for entity class {}", propertyName, pm.getEntityClassName());
         try {
             Set<?> rawValues = row.getSet(propertyName, toCompatibleJavaType(valueClass));
-            return pm.decode(rawValues);
+            return pm.forTranscoding().decode(rawValues);
 
         } catch (Exception e) {
             throw new AchillesException("Cannot retrieve set property '" + propertyName + "' from CQL Row", e);
@@ -121,7 +121,7 @@ public class RowMethodInvoker {
         try {
             Map<?, ?> rawValues = row.getMap(propertyName, toCompatibleJavaType(keyClass),
                     toCompatibleJavaType(valueClass));
-            return pm.decode(rawValues);
+            return pm.forTranscoding().decode(rawValues);
 
         } catch (Exception e) {
             throw new AchillesException("Cannot retrieve map property '" + propertyName + "' from CQL Row", e);

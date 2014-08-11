@@ -59,7 +59,7 @@ import com.datastax.driver.core.TableMetadata;
 import com.google.common.collect.ImmutableMap;
 import info.archinnov.achilles.exception.AchillesInvalidTableException;
 import info.archinnov.achilles.internal.context.ConfigurationContext;
-import info.archinnov.achilles.test.builders.PropertyMetaTestBuilder;
+import info.archinnov.achilles.internal.metadata.holder.PropertyMetaTestBuilder;
 import info.archinnov.achilles.test.parser.entity.Bean;
 import info.archinnov.achilles.test.parser.entity.EmbeddedKey;
 import info.archinnov.achilles.type.Counter;
@@ -164,7 +164,8 @@ public class TableCreatorTest {
         ClusteringOrder clusteringOrder = new ClusteringOrder("name", Sorting.DESC);
         ClusteringComponents clusteringComponents = mock(ClusteringComponents.class);
         EmbeddedIdProperties props = EmbeddedIdPropertiesBuilder.buildEmbeddedIdProperties(partitionComponents, clusteringComponents, "entity");
-        idMeta.setEmbeddedIdProperties(props);
+
+//        idMeta.setEmbeddedIdProperties(props);
 
         Map<String, PropertyMeta> propertyMetas = new HashMap<>();
         PropertyMeta simpleMeta = new PropertyMeta();
@@ -244,7 +245,7 @@ public class TableCreatorTest {
         PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class).type(EMBEDDED_ID).field("id").build();
 
         PropertyMeta longColPM = PropertyMetaTestBuilder.valueClass(Long.class).type(SIMPLE).field("longCol").build();
-        longColPM.setStaticColumn(true);
+//        longColPM.setStaticColumn(true);
 
         meta = new EntityMeta();
         meta.setAllMetasExceptIdAndCounters(asList(longColPM));
@@ -275,7 +276,7 @@ public class TableCreatorTest {
 
         PropertyMeta counterColPM = PropertyMetaTestBuilder.keyValueClass(Void.class, Counter.class).type(COUNTER)
                 .field("counterCol").build();
-        counterColPM.setStaticColumn(true);
+//        counterColPM.setStaticColumn(true);
 
         meta = new EntityMeta();
         meta.setPropertyMetas(ImmutableMap.of("id", idMeta, "counter", counterColPM));

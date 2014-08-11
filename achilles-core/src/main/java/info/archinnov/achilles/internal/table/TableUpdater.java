@@ -54,7 +54,7 @@ public class TableUpdater {
             if (!columnNames.contains(propertyMeta.getPropertyName())) {
                 String propertyName = propertyMeta.getCQL3PropertyName();
                 Class<?> keyClass = propertyMeta.getKeyClass();
-                Class<?> valueClass = propertyMeta.getValueClassForTableCreationAndValidation();
+                Class<?> valueClass = propertyMeta.forTableCreation().getValueClassForTableCreationAndValidation();
                 final boolean staticColumn = propertyMeta.isStaticColumn();
                 String alterTableScript = "";
                 switch (propertyMeta.type()) {
@@ -88,10 +88,8 @@ public class TableUpdater {
                     DML_LOG.debug(alterTableScript);
                 }
 
-                if (propertyMeta.isIndexed()) {
-                    final String optionalIndexName = propertyMeta.getIndexProperties().getIndexName();
-                    final String indexName = isBlank(optionalIndexName) ? tableName + "_" + propertyName : optionalIndexName;
-                    final String createIndexScript = SchemaBuilder.createIndex(indexName).onTable(tableName).andColumn(propertyName);
+                if (propertyMeta.structure().isIndexed()) {
+                    final String createIndexScript = propertyMeta.forTableCreation().createNewIndexScript(tableName);
                     session.execute(createIndexScript);
                     DML_LOG.debug(createIndexScript);
                 }

@@ -83,7 +83,7 @@ import info.archinnov.achilles.internal.statement.wrapper.RegularStatementWrappe
 import info.archinnov.achilles.listener.CASResultListener;
 import info.archinnov.achilles.query.slice.SliceQueryProperties;
 import info.archinnov.achilles.test.builders.CompleteBeanTestBuilder;
-import info.archinnov.achilles.test.builders.PropertyMetaTestBuilder;
+import info.archinnov.achilles.internal.metadata.holder.PropertyMetaTestBuilder;
 import info.archinnov.achilles.test.mapping.entity.CompleteBean;
 import info.archinnov.achilles.type.ConsistencyLevel;
 import info.archinnov.achilles.type.Pair;

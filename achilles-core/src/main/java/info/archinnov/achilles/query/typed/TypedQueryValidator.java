@@ -37,7 +37,7 @@ public class TypedQueryValidator {
 		validateRawTypedQuery(entityClass, regularStatement, meta);
 
 		if (!queryString.contains("select *")) {
-			idMeta.validateTypedQuery(queryString);
+			idMeta.forTypedQuery().validateTypedQuery(queryString);
 		}
 	}
 

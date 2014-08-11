@@ -263,7 +263,7 @@ public class PreparedStatementBinder {
     private List<Object> fetchPropertiesValues(List<PropertyMeta> pms, Object entity) {
         List<Object> values = new ArrayList<>();
         for (PropertyMeta pm : pms) {
-            Object value = pm.getAndEncodeValueForCassandra(entity);
+            Object value = pm.forTranscoding().getAndEncodeValueForCassandra(entity);
             values.add(value);
         }
 
@@ -283,10 +283,10 @@ public class PreparedStatementBinder {
 
     private List<Object> bindPrimaryKey(Object primaryKey, PropertyMeta idMeta, boolean onlyStaticColumns) {
         List<Object> values = new ArrayList<>();
-        if (idMeta.isEmbeddedId()) {
-            values.addAll(idMeta.encodeToComponents(primaryKey, onlyStaticColumns));
+        if (idMeta.structure().isEmbeddedId()) {
+            values.addAll(idMeta.forTranscoding().encodeToComponents(primaryKey, onlyStaticColumns));
         } else {
-            values.add(idMeta.encode(primaryKey));
+            values.add(idMeta.forTranscoding().encodeToCassandra(primaryKey));
         }
         return values;
     }
@@ -294,7 +294,7 @@ public class PreparedStatementBinder {
     private Object[] extractValuesForSimpleCounterBinding(EntityMeta entityMeta, PropertyMeta pm, Object primaryKey) {
         PropertyMeta idMeta = entityMeta.getIdMeta();
         String fqcn = entityMeta.getClassName();
-        String primaryKeyAsString = idMeta.forceEncodeToJSON(primaryKey);
+        String primaryKeyAsString = idMeta.forTranscoding().forceEncodeToJSON(primaryKey);
         String propertyName = pm.getPropertyName();
 
         return new Object[] { fqcn, primaryKeyAsString, propertyName };

@@ -46,7 +46,7 @@ public class SelectDSLTest {
 
     @Before
     public void setUp() {
-        when(entityMeta.getClusteringOrders()).thenReturn(asList(new ClusteringOrder("col1", Sorting.ASC)));
+        when(entityMeta.getClusteringOrderForSliceQuery()).thenReturn(new ClusteringOrder("col1", Sorting.ASC));
         when(entityMeta.getPartitionKeysSize()).thenReturn(2);
         when(entityMeta.getClusteringKeysSize()).thenReturn(3);
 

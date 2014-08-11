@@ -55,7 +55,7 @@ public class EntityInitializerTest {
 
 		initializer.initializeEntity(bean, meta);
 
-		verify(counterMeta).invokeGetter(bean);
+		verify(counterMeta).forceLoad(bean);
 
 	}
 

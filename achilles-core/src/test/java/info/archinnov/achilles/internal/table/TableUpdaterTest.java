@@ -47,7 +47,7 @@ import com.datastax.driver.core.TableMetadata;
 import info.archinnov.achilles.internal.metadata.holder.EntityMeta;
 import info.archinnov.achilles.internal.metadata.holder.IndexProperties;
 import info.archinnov.achilles.internal.metadata.holder.PropertyMeta;
-import info.archinnov.achilles.test.builders.PropertyMetaTestBuilder;
+import info.archinnov.achilles.internal.metadata.holder.PropertyMetaTestBuilder;
 import info.archinnov.achilles.type.Counter;
 
 @RunWith(MockitoJUnitRunner.class)
@@ -104,7 +104,7 @@ public class TableUpdaterTest {
         // Given
         PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(Long.class).type(ID).field("id").build();
         PropertyMeta longColPM = PropertyMetaTestBuilder.valueClass(Long.class).type(SIMPLE).field("longCol").build();
-        longColPM.setStaticColumn(true);
+//        longColPM.setStaticColumn(true);
 
         meta = new EntityMeta();
         meta.setAllMetasExceptId(asList(longColPM));

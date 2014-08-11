@@ -23,7 +23,6 @@ import static org.fest.assertions.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +30,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
-import info.archinnov.achilles.test.builders.PropertyMetaTestBuilder;
 import info.archinnov.achilles.test.mapping.entity.CompleteBean;
 import info.archinnov.achilles.test.parser.entity.Bean;
 import info.archinnov.achilles.type.ConsistencyLevel;
@@ -132,7 +130,7 @@ public class EntityMetaBuilderTest {
 
         when(idMeta.type()).thenReturn(EMBEDDED_ID);
         when(idMeta.<Long>getValueClass()).thenReturn(Long.class);
-        when(idMeta.isEmbeddedId()).thenReturn(true);
+        when(idMeta.structure().isEmbeddedId()).thenReturn(true);
         //when(idMeta.getClusteringComponentClasses()).thenReturn(Arrays.<Class<?>>asList(String.class));
         List<PropertyMeta> eagerMetas = new ArrayList<>();
         eagerMetas.add(counterMeta);

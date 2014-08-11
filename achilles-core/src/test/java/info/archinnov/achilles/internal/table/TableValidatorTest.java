@@ -29,12 +29,12 @@ import static info.archinnov.achilles.internal.metadata.holder.PropertyType.LIST
 import static info.archinnov.achilles.internal.metadata.holder.PropertyType.MAP;
 import static info.archinnov.achilles.internal.metadata.holder.PropertyType.SET;
 import static info.archinnov.achilles.internal.metadata.holder.PropertyType.SIMPLE;
-import static info.archinnov.achilles.test.builders.PropertyMetaTestBuilder.completeBean;
-import static info.archinnov.achilles.test.builders.PropertyMetaTestBuilder.valueClass;
+import static info.archinnov.achilles.internal.metadata.holder.PropertyMetaTestBuilder.completeBean;
+import static info.archinnov.achilles.internal.metadata.holder.PropertyMetaTestBuilder.valueClass;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import java.util.Arrays;
-import java.util.UUID;
+
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;

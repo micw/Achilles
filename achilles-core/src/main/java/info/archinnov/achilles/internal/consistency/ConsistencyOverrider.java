@@ -54,14 +54,14 @@ public class ConsistencyOverrider {
 
     public ConsistencyLevel getReadLevel(PersistentStateHolder context, PropertyMeta pm) {
         ConsistencyLevel consistency = context.getConsistencyLevel().isPresent() ? context.getConsistencyLevel().get()
-                : pm.getReadConsistencyLevel();
+                : pm.structure().getReadConsistencyLevel();
         log.trace("Read consistency level : " + consistency);
         return consistency;
     }
 
     public ConsistencyLevel getWriteLevel(PersistentStateHolder context, PropertyMeta pm) {
         ConsistencyLevel consistency = context.getConsistencyLevel().isPresent() ? context.getConsistencyLevel().get()
-                : pm.getWriteConsistencyLevel();
+                : pm.structure().getWriteConsistencyLevel();
         log.trace("Write consistency level : " + consistency);
         return consistency;
     }

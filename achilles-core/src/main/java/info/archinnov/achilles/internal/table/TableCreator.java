@@ -22,8 +22,6 @@ import static info.archinnov.achilles.counter.AchillesCounter.CQL_COUNTER_TABLE;
 import static info.archinnov.achilles.counter.AchillesCounter.CQL_COUNTER_VALUE;
 import static info.archinnov.achilles.internal.cql.TypeMapper.toCQLDataType;
 import static info.archinnov.achilles.schemabuilder.Create.Options.ClusteringOrder;
-import static info.archinnov.achilles.schemabuilder.SchemaBuilder.createIndex;
-import static org.apache.commons.lang.StringUtils.isBlank;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -112,15 +110,13 @@ public class TableCreator {
         for (PropertyMeta pm : entityMeta.getAllMetasExceptIdAndCounters()) {
             String propertyName = pm.getCQL3PropertyName();
             Class<?> keyClass = pm.getKeyClass();
-            Class<?> valueClass = pm.getValueClassForTableCreationAndValidation();
+            Class<?> valueClass = pm.forTableCreation().getValueClassForTableCreationAndValidation();
             final boolean staticColumn = pm.isStaticColumn();
             switch (pm.type()) {
                 case SIMPLE:
                     createTable.addColumn(propertyName, toCQLDataType(valueClass), staticColumn);
-                    if (pm.isIndexed()) {
-                        final String optionalIndexName = pm.getIndexProperties().getIndexName();
-                        final String indexName = isBlank(optionalIndexName) ? tableName + "_" + propertyName : optionalIndexName;
-                        indexes.add(createIndex(indexName).onTable(tableName).andColumn(propertyName));
+                    if (pm.structure().isIndexed()) {
+                        pm.forTableCreation().createNewIndex(tableName, indexes);
                     }
                     break;
                 case LIST:
@@ -139,7 +135,7 @@ public class TableCreator {
         final PropertyMeta idMeta = entityMeta.getIdMeta();
         buildPrimaryKey(idMeta, createTable);
         final Create.Options tableOptions = createTable.withOptions();
-        addClusteringOrder(idMeta, tableOptions);
+        idMeta.forTableCreation().addClusteringOrder(tableOptions);
         if (StringUtils.isNotBlank(entityMeta.getTableComment())) {
             tableOptions.comment(entityMeta.getTableComment());
         }
@@ -168,7 +164,7 @@ public class TableCreator {
             createTable.addColumn(counterMeta.getCQL3PropertyName(), DataType.counter(),counterMeta.isStaticColumn());
         }
         final Create.Options tableOptions = createTable.withOptions();
-        addClusteringOrder(idMeta, tableOptions);
+        idMeta.forTableCreation().addClusteringOrder(tableOptions);
         tableOptions.comment("Create table for clustered counter entity \"" + meta.getClassName() + "\"");
 
         final String createTableScript = tableOptions.build();
@@ -176,22 +172,15 @@ public class TableCreator {
         DML_LOG.debug(createTableScript);
     }
 
-    private void addClusteringOrder(PropertyMeta idMeta, Create.Options tableOptions) {
-        if (idMeta.isClustered()) {
-            final List<ClusteringOrder> clusteringOrders = idMeta.getClusteringOrders();
-            tableOptions.clusteringOrder(clusteringOrders.toArray(new ClusteringOrder[clusteringOrders.size()]));
-        }
-    }
-
     private List<ClusteringOrder> buildPrimaryKey(PropertyMeta pm, Create createTable) {
         List<ClusteringOrder> clusteringOrders = new LinkedList<>();
 
-        if (pm.isEmbeddedId()) {
-            pm.addPartitionKeys(createTable);
-            pm.addClusteringKeys(createTable);
+        if (pm.structure().isEmbeddedId()) {
+            pm.forTableCreation().addPartitionKeys(createTable);
+            pm.forTableCreation().addClusteringKeys(createTable);
         } else {
             String cql3PropertyName = pm.getCQL3PropertyName();
-            createTable.addPartitionKey(cql3PropertyName, toCQLDataType(pm.getValueClassForTableCreationAndValidation()));
+            createTable.addPartitionKey(cql3PropertyName, toCQLDataType(pm.forTableCreation().getValueClassForTableCreationAndValidation()));
         }
         return clusteringOrders;
     }

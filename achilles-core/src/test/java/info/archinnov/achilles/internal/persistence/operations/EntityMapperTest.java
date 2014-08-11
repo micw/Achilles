@@ -48,7 +48,7 @@ import info.archinnov.achilles.internal.metadata.holder.PropertyMeta;
 import info.archinnov.achilles.internal.reflection.ReflectionInvoker;
 import info.archinnov.achilles.internal.reflection.RowMethodInvoker;
 import info.archinnov.achilles.test.builders.CompleteBeanTestBuilder;
-import info.archinnov.achilles.test.builders.PropertyMetaTestBuilder;
+import info.archinnov.achilles.internal.metadata.holder.PropertyMetaTestBuilder;
 import info.archinnov.achilles.test.mapping.entity.ClusteredEntity;
 import info.archinnov.achilles.test.mapping.entity.CompleteBean;
 import info.archinnov.achilles.test.parser.entity.EmbeddedKey;
@@ -85,7 +85,7 @@ public class EntityMapperTest {
     @Test
     public void should_set_non_counter_properties_to_entity() throws Exception {
         PropertyMeta pm = mock(PropertyMeta.class);
-        when(pm.isEmbeddedId()).thenReturn(false);
+        when(pm.structure().isEmbeddedId()).thenReturn(false);
         when(pm.getPropertyName()).thenReturn("name");
         when(entityMeta.getAllMetasExceptCounters()).thenReturn(asList(pm));
 
@@ -118,7 +118,7 @@ public class EntityMapperTest {
     @Test
     public void should_set_null_to_entity_when_no_value_from_row() throws Exception {
         PropertyMeta pm = mock(PropertyMeta.class);
-        when(pm.isEmbeddedId()).thenReturn(false);
+        when(pm.structure().isEmbeddedId()).thenReturn(false);
         when(pm.getPropertyName()).thenReturn("name");
 
         when(row.isNull("name")).thenReturn(true);
@@ -157,7 +157,7 @@ public class EntityMapperTest {
         PropertyMeta idMeta = mock(PropertyMeta.class);
         PropertyMeta valueMeta = mock(PropertyMeta.class);
 
-        when(idMeta.isEmbeddedId()).thenReturn(false);
+        when(idMeta.structure().isEmbeddedId()).thenReturn(false);
 
         Map<String, PropertyMeta> propertiesMap = ImmutableMap.of("id", idMeta, "value", valueMeta);
 
@@ -186,9 +186,9 @@ public class EntityMapperTest {
         EmbeddedKey embeddedKey = new EmbeddedKey();
         PropertyMeta idMeta = mock(PropertyMeta.class);
 
-        when(idMeta.isEmbeddedId()).thenReturn(true);
+        when(idMeta.structure().isEmbeddedId()).thenReturn(true);
 
-        Map<String, PropertyMeta> propertiesMap = new HashMap<String, PropertyMeta>();
+        Map<String, PropertyMeta> propertiesMap = new HashMap<>();
 
         when(row.getColumnDefinitions()).thenReturn(columnDefs);
         when(columnDefs.iterator()).thenReturn(Arrays.<Definition>asList().iterator());

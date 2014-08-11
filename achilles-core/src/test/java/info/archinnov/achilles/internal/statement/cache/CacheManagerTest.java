@@ -18,7 +18,7 @@ package info.archinnov.achilles.internal.statement.cache;
 import static com.google.common.collect.Sets.newHashSet;
 import static info.archinnov.achilles.internal.metadata.holder.PropertyType.SIMPLE;
 import static info.archinnov.achilles.internal.persistence.operations.CollectionAndMapChangeType.ADD_TO_SET;
-import static info.archinnov.achilles.test.builders.PropertyMetaTestBuilder.completeBean;
+import static info.archinnov.achilles.internal.metadata.holder.PropertyMetaTestBuilder.completeBean;
 import static info.archinnov.achilles.type.OptionsBuilder.noOptions;
 import static java.util.Arrays.asList;
 import static org.fest.assertions.api.Assertions.assertThat;
@@ -47,7 +47,7 @@ import info.archinnov.achilles.internal.metadata.holder.PropertyType;
 import info.archinnov.achilles.internal.proxy.dirtycheck.DirtyCheckChangeSet;
 import info.archinnov.achilles.internal.statement.prepared.PreparedStatementGenerator;
 import info.archinnov.achilles.query.slice.SliceQueryProperties;
-import info.archinnov.achilles.test.builders.PropertyMetaTestBuilder;
+import info.archinnov.achilles.internal.metadata.holder.PropertyMetaTestBuilder;
 import info.archinnov.achilles.test.mapping.entity.CompleteBean;
 
 @RunWith(MockitoJUnitRunner.class)

@@ -17,11 +17,10 @@ package info.archinnov.achilles.internal.statement;
 
 import static com.datastax.driver.core.querybuilder.Update.Conditions;
 import static info.archinnov.achilles.internal.metadata.holder.PropertyType.ID;
-import static info.archinnov.achilles.internal.metadata.holder.PropertyType.SIMPLE;
 import static info.archinnov.achilles.internal.persistence.operations.CollectionAndMapChangeType.REMOVE_FROM_LIST_AT_INDEX;
 import static info.archinnov.achilles.internal.persistence.operations.CollectionAndMapChangeType.SET_TO_LIST_AT_INDEX;
 import static info.archinnov.achilles.test.builders.CompleteBeanTestBuilder.builder;
-import static info.archinnov.achilles.test.builders.PropertyMetaTestBuilder.completeBean;
+import static info.archinnov.achilles.internal.metadata.holder.PropertyMetaTestBuilder.completeBean;
 import static info.archinnov.achilles.type.Options.CASCondition;
 import static java.util.Arrays.asList;
 import static org.fest.assertions.api.Assertions.assertThat;
@@ -47,12 +46,10 @@ import info.archinnov.achilles.internal.context.DaoContext;
 import info.archinnov.achilles.internal.context.PersistenceContext;
 import info.archinnov.achilles.internal.metadata.holder.EntityMeta;
 import info.archinnov.achilles.internal.metadata.holder.PropertyMeta;
-import info.archinnov.achilles.internal.metadata.holder.PropertyType;
 import info.archinnov.achilles.internal.proxy.dirtycheck.DirtyCheckChangeSet;
 import info.archinnov.achilles.internal.reflection.ReflectionInvoker;
 import info.archinnov.achilles.internal.statement.wrapper.RegularStatementWrapper;
 import info.archinnov.achilles.test.mapping.entity.CompleteBean;
-import info.archinnov.achilles.test.parser.entity.EmbeddedKey;
 import info.archinnov.achilles.type.Pair;
 
 @RunWith(MockitoJUnitRunner.class)

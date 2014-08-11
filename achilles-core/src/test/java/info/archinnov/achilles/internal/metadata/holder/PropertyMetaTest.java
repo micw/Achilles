@@ -16,24 +16,18 @@
 package info.archinnov.achilles.internal.metadata.holder;
 
 import static info.archinnov.achilles.internal.metadata.holder.PropertyType.*;
-import static info.archinnov.achilles.schemabuilder.Create.Options.ClusteringOrder;
-import static info.archinnov.achilles.schemabuilder.Create.Options.ClusteringOrder.Sorting.*;
 import static info.archinnov.achilles.type.ConsistencyLevel.QUORUM;
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 import info.archinnov.achilles.internal.reflection.ReflectionInvoker;
 import info.archinnov.achilles.json.DefaultJacksonMapperFactory;
-import info.archinnov.achilles.test.builders.PropertyMetaTestBuilder;
 import info.archinnov.achilles.test.mapping.entity.CompleteBean;
 import info.archinnov.achilles.test.parser.entity.EmbeddedKey;
 import info.archinnov.achilles.type.ConsistencyLevel;
 import info.archinnov.achilles.type.Pair;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -50,7 +44,6 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 
 @RunWith(MockitoJUnitRunner.class)
@@ -65,45 +58,11 @@ public class PropertyMetaTest {
 	private ReflectionInvoker invoker;
 
 	@Test
-	public void should_get_counter_id_meta() throws Exception {
-		PropertyMeta idMeta = new PropertyMeta();
-
-		PropertyMeta propertyMeta = PropertyMetaTestBuilder.valueClass(Long.class).type(PropertyType.COUNTER)
-				.counterIdMeta(idMeta).build();
-
-		assertThat(propertyMeta.counterIdMeta()).isSameAs(idMeta);
-	}
-
-	@Test
-	public void should_return_null_if_no_counter_id_meta() throws Exception {
-		PropertyMeta propertyMeta = PropertyMetaTestBuilder.valueClass(Long.class).type(PropertyType.COUNTER).build();
-
-		assertThat(propertyMeta.counterIdMeta()).isNull();
-	}
-
-	@Test
-	public void should_get_fqcn() throws Exception {
-
-		PropertyMeta propertyMeta = PropertyMetaTestBuilder.valueClass(Long.class).type(PropertyType.COUNTER)
-				.fqcn("fqcn").build();
-
-		assertThat(propertyMeta.fqcn()).isEqualTo("fqcn");
-	}
-
-	@Test
-	public void should_return_null_if_no_fqcn() throws Exception {
-
-		PropertyMeta propertyMeta = PropertyMetaTestBuilder.valueClass(Long.class).type(PropertyType.COUNTER).build();
-
-		assertThat(propertyMeta.fqcn()).isNull();
-	}
-
-	@Test
 	public void should_return_true_for_isCounter_when_type_is_counter() throws Exception {
 		PropertyMeta propertyMeta = PropertyMetaTestBuilder.keyValueClass(Void.class, String.class)
 				.type(PropertyType.COUNTER).build();
 
-		assertThat(propertyMeta.isCounter()).isTrue();
+		assertThat(propertyMeta.structure().isCounter()).isTrue();
 	}
 
 	@Test
@@ -153,59 +112,45 @@ public class PropertyMetaTest {
 		PropertyMeta pm = new PropertyMeta();
 		pm.setType(SIMPLE);
 
-		assertThat(pm.forceEncodeToJSON(new UUID(10, 10))).isEqualTo("\"00000000-0000-000a-0000-00000000000a\"");
+		assertThat(pm.forTranscoding().forceEncodeToJSON(new UUID(10, 10))).isEqualTo("\"00000000-0000-000a-0000-00000000000a\"");
 	}
-
-	@Test
-	public void should_get_clustering_order() throws Exception {
-		PropertyMeta meta = new PropertyMeta();
-
-        final ClusteringOrder clusteringOrder = new ClusteringOrder("test", DESC);
-        final PartitionComponents partitionComponents = mock(PartitionComponents.class);
-        final ClusteringComponents clusteringComponents = mock(ClusteringComponents.class);
-        EmbeddedIdProperties props = EmbeddedIdPropertiesBuilder.buildEmbeddedIdProperties(partitionComponents, clusteringComponents, "entity");
-		meta.setEmbeddedIdProperties(props);
-
-        assertThat(meta.getClusteringOrders()).containsExactly(clusteringOrder);
-    }
-
 
 	@Test
 	public void should_return_true_for_is_embedded_id() throws Exception {
 		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class).type(EMBEDDED_ID).build();
 
-		assertThat(idMeta.isEmbeddedId()).isTrue();
+		assertThat(idMeta.structure().isEmbeddedId()).isTrue();
 	}
 
 	@Test
 	public void should_return_false_for_is_embedded_id() throws Exception {
 		PropertyMeta idMeta = PropertyMetaTestBuilder.valueClass(EmbeddedKey.class).type(ID).build();
 
-		assertThat(idMeta.isEmbeddedId()).isFalse();
+		assertThat(idMeta.structure().isEmbeddedId()).isFalse();
 	}
 
 	@Test
 	public void should_get_read_consistency() throws Exception {
 		PropertyMeta pm = new PropertyMeta();
 
-		assertThat(pm.getReadConsistencyLevel()).isNull();
-		assertThat(pm.getWriteConsistencyLevel()).isNull();
+		assertThat(pm.structure().getReadConsistencyLevel()).isNull();
+		assertThat(pm.structure().getWriteConsistencyLevel()).isNull();
 
 		pm.setConsistencyLevels(Pair.<ConsistencyLevel, ConsistencyLevel> create(QUORUM, QUORUM));
 
-		assertThat(pm.getReadConsistencyLevel()).isEqualTo(QUORUM);
-		assertThat(pm.getWriteConsistencyLevel()).isEqualTo(QUORUM);
+		assertThat(pm.structure().getReadConsistencyLevel()).isEqualTo(QUORUM);
+		assertThat(pm.structure().getWriteConsistencyLevel()).isEqualTo(QUORUM);
 	}
 
 	@Test
 	public void should_decode() throws Exception {
 		PropertyMeta pm = new PropertyMeta();
 
-		assertThat(pm.decode((Object) null)).isNull();
-		assertThat(pm.decode((List<?>) null)).isNull();
-		assertThat(pm.decode((Set<?>) null)).isNull();
-		assertThat(pm.decode((Map<?, ?>) null)).isNull();
-		assertThat(pm.decodeFromComponents((List<?>) null)).isNull();
+		assertThat(pm.forTranscoding().decode((Object) null)).isNull();
+		assertThat(pm.forTranscoding().decode((List<?>) null)).isNull();
+		assertThat(pm.forTranscoding().decode((Set<?>) null)).isNull();
+		assertThat(pm.forTranscoding().decode((Map<?, ?>) null)).isNull();
+		assertThat(pm.forTranscoding().decodeFromComponents((List<?>) null)).isNull();
 
 		Object value = "";
 		List<Object> list = new ArrayList<Object>();
@@ -219,22 +164,22 @@ public class PropertyMetaTest {
 //		when(transcoder.decode(pm, map)).thenReturn(map);
 //		when(transcoder.decodeFromComponents(pm, list)).thenReturn(list);
 
-		assertThat(pm.decode(value)).isEqualTo(value);
-		assertThat(pm.decode(list)).isEqualTo(list);
-		assertThat(pm.decode(set)).isEqualTo(set);
-		assertThat(pm.decode(map)).isEqualTo(map);
-		assertThat(pm.decodeFromComponents(list)).isEqualTo(list);
+		assertThat(pm.forTranscoding().decode(value)).isEqualTo(value);
+		assertThat(pm.forTranscoding().decode(list)).isEqualTo(list);
+		assertThat(pm.forTranscoding().decode(set)).isEqualTo(set);
+		assertThat(pm.forTranscoding().decode(map)).isEqualTo(map);
+		assertThat(pm.forTranscoding().decodeFromComponents(list)).isEqualTo(list);
 	}
 
 	@Test
 	public void should_encode() throws Exception {
 		PropertyMeta pm = new PropertyMeta();
 
-		assertThat(pm.encode((Object) null)).isNull();
-		assertThat(pm.encode((List<?>) null)).isNull();
-		assertThat(pm.encode((Set<?>) null)).isNull();
-		assertThat(pm.encode((Map<?, ?>) null)).isNull();
-		assertThat(pm.encodeToComponents( null, true)).isNull();
+		assertThat(pm.forTranscoding().encodeToCassandra((Object) null)).isNull();
+		assertThat(pm.forTranscoding().encodeToCassandra((List<?>) null)).isNull();
+		assertThat(pm.forTranscoding().encodeToCassandra((Set<?>) null)).isNull();
+		assertThat(pm.forTranscoding().encodeToCassandra((Map<?, ?>) null)).isNull();
+		assertThat(pm.forTranscoding().encodeToComponents( null, true)).isNull();
 
 		Object value = "";
 		List<Object> list = new ArrayList<Object>();
@@ -249,19 +194,19 @@ public class PropertyMetaTest {
 //		when(transcoder.encodeToComponents(pm, list)).thenReturn(list);
 //		when(transcoder.encodeToComponents(pm, list)).thenReturn(list);
 
-		assertThat(pm.encode(value)).isEqualTo(value);
-		assertThat(pm.encode(list)).isEqualTo(list);
-		assertThat(pm.encode(set)).isEqualTo(set);
-		assertThat(pm.encode(map)).isEqualTo(map);
-		assertThat(pm.encodeToComponents(list, false)).isEqualTo(list);
-		assertThat(pm.encodeToComponents(list, false)).isEqualTo(list);
+		assertThat(pm.forTranscoding().encodeToCassandra(value)).isEqualTo(value);
+		assertThat(pm.forTranscoding().encodeToCassandra(list)).isEqualTo(list);
+		assertThat(pm.forTranscoding().encodeToCassandra(set)).isEqualTo(set);
+		assertThat(pm.forTranscoding().encodeToCassandra(map)).isEqualTo(map);
+		assertThat(pm.forTranscoding().encodeToComponents(list, false)).isEqualTo(list);
+		assertThat(pm.forTranscoding().encodeToComponents(list, false)).isEqualTo(list);
 	}
 
 	@Test
 	public void should_force_encode_to_json() throws Exception {
 		PropertyMeta pm = new PropertyMeta();
 
-		pm.forceEncodeToJSON("value");
+		pm.forTranscoding().forceEncodeToJSON("value");
 
 //		verify(transcoder).forceEncodeToJSON("value");
 	}
@@ -308,53 +253,6 @@ public class PropertyMetaTest {
 		when(invoker.getValueFromField(entity, pm.getField())).thenReturn("name");
 
 		assertThat(pm.getValueFromField(entity)).isEqualTo("name");
-	}
-
-	@Test
-	public void should_get_list_value_from_field() throws Exception {
-
-		CompleteBean entity = new CompleteBean();
-		List<String> friends = Arrays.asList("foo", "bar");
-		entity.setFriends(friends);
-
-		PropertyMeta pm = PropertyMetaTestBuilder.completeBean(Void.class, String.class).field("friends").accessors()
-				.type(LIST).invoker(invoker).build();
-
-		when(invoker.<String> getListValueFromField(entity, pm.getField())).thenReturn(friends);
-
-		assertThat(pm.<String> getListValueFromField(entity)).containsExactly("foo", "bar");
-	}
-
-	@Test
-	public void should_get_set_value_from_field() throws Exception {
-
-		CompleteBean entity = new CompleteBean();
-		Set<String> followers = Sets.newHashSet("George", "Paul");
-		entity.setFollowers(followers);
-
-		PropertyMeta pm = PropertyMetaTestBuilder.completeBean(Void.class, String.class).field("followers").accessors()
-				.type(SET).invoker(invoker).build();
-
-		when(invoker.<String> getSetValueFromField(entity, pm.getField())).thenReturn(followers);
-
-		assertThat(pm.<String> getSetValueFromField(entity)).containsOnly("George", "Paul");
-	}
-
-	@Test
-	public void should_get_map_value_from_field() throws Exception {
-
-		CompleteBean entity = new CompleteBean();
-		Map<Integer, String> preferences = ImmutableMap.of(1, "FR", 2, "Paris");
-		entity.setPreferences(preferences);
-
-		PropertyMeta pm = PropertyMetaTestBuilder.completeBean(Integer.class, String.class).field("preferences")
-				.accessors().type(MAP).invoker(invoker).build();
-
-		when(invoker.<Integer, String> getMapValueFromField(entity, pm.getField())).thenReturn(preferences);
-
-		Map<Integer, String> actual = pm.getMapValueFromField(entity);
-
-		assertThat(actual).containsKey(1).containsKey(2).containsValue("FR").containsValue("Paris");
 	}
 
 	@Test

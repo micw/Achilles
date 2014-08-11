@@ -16,7 +16,7 @@
 package info.archinnov.achilles.internal.context;
 
 import static info.archinnov.achilles.internal.metadata.holder.PropertyType.SIMPLE;
-import static info.archinnov.achilles.test.builders.PropertyMetaTestBuilder.completeBean;
+import static info.archinnov.achilles.internal.metadata.holder.PropertyMetaTestBuilder.completeBean;
 import static org.fest.assertions.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 import java.util.Arrays;

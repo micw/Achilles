@@ -28,13 +28,11 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
 import com.datastax.driver.core.Row;
 import info.archinnov.achilles.internal.context.PersistenceContext;
 import info.archinnov.achilles.internal.metadata.holder.EntityMeta;
 import info.archinnov.achilles.internal.metadata.holder.PropertyMeta;
-import info.archinnov.achilles.internal.metadata.holder.PropertyType;
 import info.archinnov.achilles.test.mapping.entity.CompleteBean;
 
 @RunWith(MockitoJUnitRunner.class)
@@ -136,7 +134,7 @@ public class EntityLoaderTest {
     @Test
     public void should_load_properties_into_object() throws Exception {
         // Given
-        when(pm.isCounter()).thenReturn(false);
+        when(pm.structure().isCounter()).thenReturn(false);
         Row row = mock(Row.class);
         when(context.loadProperty(pm)).thenReturn(row);
 
@@ -152,8 +150,8 @@ public class EntityLoaderTest {
     public void should_switch_null_with_NullRow_for_collection_and_map() throws Exception {
         // Given
         ArgumentCaptor<Row> rowCaptor = ArgumentCaptor.forClass(Row.class);
-        when(pm.isCounter()).thenReturn(false);
-        when(pm.isCollectionAndMap()).thenReturn(true);
+        when(pm.structure().isCounter()).thenReturn(false);
+        when(pm.structure().isCollectionAndMap()).thenReturn(true);
 
         when(context.loadProperty(pm)).thenReturn(null);
 
@@ -170,7 +168,7 @@ public class EntityLoaderTest {
     @Test
     public void should_load_counter_properties_into_object() throws Exception {
         // Given
-        when(pm.isCounter()).thenReturn(true);
+        when(pm.structure().isCounter()).thenReturn(true);
 
         // When
         loader.loadPropertyIntoObject(context, entity, pm);
